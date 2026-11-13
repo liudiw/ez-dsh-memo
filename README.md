@@ -152,7 +152,7 @@ dsh-memo-done: true           # 完成才写
 ```json
 {
   "enabled": true,
-  "api": "https://obsidian-fns.iepose.cn",
+  "api": "https://your-fns-url.com",
   "apiToken": "<从 FNS 网页端生成的 API 令牌>",
   "vault": "Memo Vault",
   "folder": "便签墙",
