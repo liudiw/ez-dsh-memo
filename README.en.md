@@ -1,5 +1,7 @@
 # ez-dsh-memo
 
+中文 · [English](README.en.md)
+
 A sticky-note wall for **[DeepSeek Harness](https://github.com/deepseek-ai)** — jot ideas in one keystroke, organize with categories, set reminders, link notes wiki-style, and optionally mirror everything to a [fast-note-sync](https://github.com/) Obsidian vault as Markdown.
 
 > Screenshots: coming soon.
