@@ -116,6 +116,25 @@ window.__ModuleLoader__.load({
       'quick.saved': '已存到便签墙',
       'quick.recent': '最近的便签',
       'quick.remindHint': '可选：设个提醒',
+      'set.title': '便签墙',
+      'set.sync': '同步到 fast-note-sync',
+      'set.enable': '启用同步',
+      'set.api': '服务地址',
+      'set.token': '访问令牌',
+      'set.tokenKeep': '留空表示不修改（当前：{{hint}}）',
+      'set.vault': 'Vault 名称',
+      'set.folder': '便签目录',
+      'set.imageFolder': '附件目录',
+      'set.interval': '同步间隔（秒）',
+      'set.save': '保存',
+      'set.test': '保存并测试',
+      'set.saved': '已保存',
+      'set.testing': '正在测试…',
+      'set.ok': '连接正常',
+      'set.fail': '连接失败',
+      'set.errApi': '服务地址要以 http:// 或 https:// 开头',
+      'set.errVault': 'Vault 名称不能为空',
+      'set.tip': '便签始终保存在本机 ~/.dsh/dsh-memo/notes.json，同步只是把它镜像成 Markdown。',
       'quick.pickCategory': '分类',
       'quick.pickCategoryHint': '分类（Alt+C）',
       'drawer.title': '便签',
@@ -254,6 +273,25 @@ window.__ModuleLoader__.load({
       'quick.saved': 'Saved',
       'quick.recent': 'Recent notes',
       'quick.remindHint': 'Optional reminder',
+      'set.title': 'Sticky notes',
+      'set.sync': 'Sync to fast-note-sync',
+      'set.enable': 'Enable sync',
+      'set.api': 'Server URL',
+      'set.token': 'Access token',
+      'set.tokenKeep': 'Leave empty to keep current ({{hint}})',
+      'set.vault': 'Vault',
+      'set.folder': 'Notes folder',
+      'set.imageFolder': 'Attachments folder',
+      'set.interval': 'Sync interval (s)',
+      'set.save': 'Save',
+      'set.test': 'Save and test',
+      'set.saved': 'Saved',
+      'set.testing': 'Testing…',
+      'set.ok': 'Connection OK',
+      'set.fail': 'Connection failed',
+      'set.errApi': 'URL must start with http:// or https://',
+      'set.errVault': 'Vault name is required',
+      'set.tip': 'Notes always live on this machine at ~/.dsh/dsh-memo/notes.json; sync only mirrors them as Markdown.',
       'quick.pickCategory': 'Category',
       'quick.pickCategoryHint': 'Category (Alt+C)',
       'drawer.title': 'Notes',
@@ -553,6 +591,15 @@ window.__ModuleLoader__.load({
 .dsm-quickCatItem[data-active='true']{background:color-mix(in srgb,var(--dsw-alias-brand-primary) 14%,transparent)}
 .dsm-quickCatItem[aria-pressed='true']{font-weight:600;color:var(--dsw-alias-brand-primary)}
 .dsm-quickCatsRow{display:flex;flex-wrap:wrap;gap:4px}
+.dsm-set{display:flex;flex-direction:column;gap:10px;max-width:520px}
+.dsm-setTitle{margin:0;font-size:15px}
+.dsm-setTip{margin:0;font-size:12px;color:var(--dsw-alias-label-secondary);line-height:1.6}
+.dsm-setRow{display:flex;align-items:center;gap:10px;font-size:13px}
+.dsm-setRow>span{flex:0 0 110px;color:var(--dsw-alias-label-secondary)}
+.dsm-setInput{flex:1 1 auto;min-width:0;font:inherit;font-size:13px;height:30px;padding:0 9px;border-radius:7px;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);color:inherit;outline:none}
+.dsm-setInput:focus{border-color:var(--dsw-alias-brand-primary)}
+.dsm-setActions{display:flex;align-items:center;gap:8px;margin-top:4px}
+.dsm-setNote{font-size:12px;color:var(--dsw-alias-label-secondary)}
 /* 快速便签 */
 .dsm-quickLayer{position:fixed;inset:0;z-index:2147482000;pointer-events:auto;display:flex;align-items:flex-start;justify-content:center;padding-top:12vh;background:color-mix(in srgb,var(--dsw-alias-label-primary) 20%,transparent)}
 .dsm-quickPanel{pointer-events:auto;box-sizing:border-box;width:min(520px,92vw);display:flex;flex-direction:column;gap:8px;padding:12px 14px;border-radius:14px;background:var(--dsw-alias-bg-base);border:1px solid var(--dsw-alias-border-l1);box-shadow:0 30px 70px -30px rgba(0,0,0,.55)}
@@ -1825,6 +1872,157 @@ window.__ModuleLoader__.load({
       if (now - captureGuardAt < 350) return false;
       captureGuardAt = now;
       return true;
+    }
+
+    /** 设置 → 便签墙：配置 fast-note-sync（token 只显示尾号，留空表示不改）。 */
+    function makeSyncSettings(t) {
+      return function MemoSyncSettings() {
+        const [form, setForm] = useState(null);
+        const [token, setToken] = useState('');
+        const [busy, setBusy] = useState(false);
+        const [note, setNote] = useState('');
+
+        const load = useCallback(async () => {
+          try {
+            const result = await apiCall('syncConfig', { action: 'get' });
+            if (result && result.config) setForm({
+              enabled: result.config.enabled,
+              api: result.config.api,
+              vault: result.config.vault,
+              folder: result.config.folder,
+              imageFolder: result.config.imageFolder,
+              intervalMs: result.config.intervalMs,
+              hasToken: result.config.hasToken,
+              tokenHint: result.config.tokenHint,
+            });
+          } catch (error) {
+            setNote(String((error && error.message) || error));
+          }
+        }, []);
+
+        useEffect(() => {
+          load();
+        }, [load]);
+
+        if (!form) return h('div', { className: 'dsm-set' }, t('loading'));
+
+        const patch = (key, value) => setForm((current) => ({ ...current, [key]: value }));
+        const submit = async (alsoTest) => {
+          if (busy) return;
+          if (!/^https?:\/\//i.test(String(form.api || ''))) {
+            setNote(t('set.errApi'));
+            return;
+          }
+          if (!String(form.vault || '').trim()) {
+            setNote(t('set.errVault'));
+            return;
+          }
+          setBusy(true);
+          setNote(alsoTest ? t('set.testing') : '');
+          try {
+            await apiCall('syncConfig', {
+              action: 'set',
+              config: {
+                enabled: form.enabled,
+                api: form.api,
+                vault: form.vault,
+                folder: form.folder,
+                imageFolder: form.imageFolder,
+                intervalMs: Number(form.intervalMs) * 1000,
+                apiToken: token,
+              },
+            });
+            setToken('');
+            setNote(t('set.saved'));
+            await load();
+            if (alsoTest) {
+              await new Promise((resolve) => setTimeout(resolve, 1500));
+              const result = await apiCall('list');
+              const state = result && result.sync ? result.sync : null;
+              setNote(state && state.lastError
+                ? `${t('set.fail')}：${state.lastError}`
+                : `${t('set.ok')}`);
+            }
+          } catch (error) {
+            setNote(`${t('set.fail')}：${String((error && error.message) || error)}`);
+          } finally {
+            setBusy(false);
+          }
+        };
+
+        return h('div', { className: 'dsm-set' },
+          h('h3', { className: 'dsm-setTitle' }, t('set.sync')),
+          h('p', { className: 'dsm-setTip' }, t('set.tip')),
+          h('label', { className: 'dsm-setRow' },
+            h('span', null, t('set.enable')),
+            h('input', {
+              type: 'checkbox',
+              checked: form.enabled,
+              onChange: (event) => patch('enabled', event.target.checked),
+            })),
+          h('label', { className: 'dsm-setRow' },
+            h('span', null, t('set.api')),
+            h('input', {
+              className: 'dsm-setInput',
+              value: form.api,
+              placeholder: 'https://obsidian-fns.example.com',
+              onChange: (event) => patch('api', event.target.value),
+            })),
+          h('label', { className: 'dsm-setRow' },
+            h('span', null, t('set.token')),
+            h('input', {
+              className: 'dsm-setInput',
+              type: 'password',
+              value: token,
+              placeholder: form.hasToken ? t('set.tokenKeep').replace('{{hint}}', form.tokenHint) : '',
+              onChange: (event) => setToken(event.target.value),
+            })),
+          h('label', { className: 'dsm-setRow' },
+            h('span', null, t('set.vault')),
+            h('input', {
+              className: 'dsm-setInput',
+              value: form.vault,
+              placeholder: 'Memo Vault',
+              onChange: (event) => patch('vault', event.target.value),
+            })),
+          h('label', { className: 'dsm-setRow' },
+            h('span', null, t('set.folder')),
+            h('input', {
+              className: 'dsm-setInput',
+              value: form.folder,
+              onChange: (event) => patch('folder', event.target.value),
+            })),
+          h('label', { className: 'dsm-setRow' },
+            h('span', null, t('set.imageFolder')),
+            h('input', {
+              className: 'dsm-setInput',
+              value: form.imageFolder,
+              onChange: (event) => patch('imageFolder', event.target.value),
+            })),
+          h('label', { className: 'dsm-setRow' },
+            h('span', null, t('set.interval')),
+            h('input', {
+              className: 'dsm-setInput',
+              type: 'number',
+              min: 15,
+              value: Math.round((Number(form.intervalMs) || 60000) / 1000),
+              onChange: (event) => patch('intervalMs', Number(event.target.value) * 1000),
+            })),
+          h('div', { className: 'dsm-setActions' },
+            h('button', {
+              type: 'button',
+              className: 'dsm-btn dsm-btnPrimary',
+              disabled: busy,
+              onClick: () => submit(false),
+            }, t('set.save')),
+            h('button', {
+              type: 'button',
+              className: 'dsm-btn',
+              disabled: busy,
+              onClick: () => submit(true),
+            }, t('set.test')),
+            note ? h('span', { className: 'dsm-setNote' }, note) : null));
+      };
     }
 
     function makeQuickCapture(t, actions) {
@@ -5233,6 +5431,20 @@ window.__ModuleLoader__.load({
           locale: NS,
           label: () => t('panel.title'),
         }, (props) => h(MemoRailIcon, { size: props.size, active: props.active })));
+
+        // 设置 → 便签墙（fast-note-sync 配置）
+        try {
+          const MemoSyncSettings = makeSyncSettings(t);
+          ctx.slots.inject('settings.section', () => ctx.slots.register({
+            name: 'settings.section',
+            id: 'memo',
+            order: 30,
+            label: () => t('set.title'),
+            locale: NS,
+          }, MemoSyncSettings));
+        } catch (error) {
+          console.error('dsh-memo: 设置页注册失败', error);
+        }
 
         // 把「快速便签」注册进 DSH 的快捷键体系：设置页能看到、能改键
         let shortcutRegistered = false;

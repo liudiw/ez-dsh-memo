@@ -22,6 +22,55 @@ const SYNC_FILE = join(homedir(), '.dsh', 'dsh-memo', 'sync.json')
 const MAX_TEXT = 4000
 const PWA_ROUTE = '/dsh-memo'
 const PWA_ICON_DIR = join(dirname(fileURLToPath(import.meta.url)), 'icons')
+const SYNC_MASK = (token) => (token ? `••••••${String(token).slice(-4)}` : '')
+
+/** 读 sync.json（不存在就返回空对象）。 */
+async function readSyncFile() {
+  try {
+    return JSON.parse(await readFile(SYNC_FILE, 'utf8'))
+  } catch (error) {
+    return {}
+  }
+}
+
+/** 给界面看的配置：**绝不回明文 token**，只告诉有没有、尾号多少。 */
+async function syncConfigSnapshot() {
+  const config = await readSyncFile()
+  return {
+    enabled: config.enabled === true,
+    api: typeof config.api === 'string' ? config.api : '',
+    vault: typeof config.vault === 'string' ? config.vault : '',
+    folder: typeof config.folder === 'string' ? config.folder : '便签墙',
+    imageFolder: typeof config.imageFolder === 'string' ? config.imageFolder : 'attachments',
+    intervalMs: Number.isFinite(Number(config.intervalMs)) ? Number(config.intervalMs) : 60000,
+    hasToken: typeof config.apiToken === 'string' && config.apiToken.length > 0,
+    tokenHint: SYNC_MASK(config.apiToken),
+  };
+}
+
+/** 保存配置：token 传空表示「不修改」；写盘保持 600。 */
+async function saveSyncConfig(patch) {
+  const current = await readSyncFile()
+  const next = { ...current }
+  for (const key of ['enabled', 'api', 'vault', 'folder', 'imageFolder', 'intervalMs']) {
+    if (patch && patch[key] !== undefined) next[key] = patch[key]
+  }
+  next.enabled = next.enabled === true
+  if (typeof next.api === 'string') next.api = next.api.trim().replace(/\/+$/, '')
+  if (typeof patch?.apiToken === 'string' && patch.apiToken.trim()) next.apiToken = patch.apiToken.trim()
+  if (!next.api) throw new Error('服务地址不能为空')
+  if (!/^https?:\/\//i.test(next.api)) throw new Error('服务地址要以 http:// 或 https:// 开头')
+  if (!next.vault) throw new Error('Vault 名称不能为空')
+  const stamp = Number(next.intervalMs)
+  next.intervalMs = Number.isFinite(stamp) && stamp >= 15000 ? Math.round(stamp) : 60000
+  const dir = dirname(SYNC_FILE)
+  await mkdir(dir, { recursive: true })
+  const temp = `${SYNC_FILE}.${process.pid}.tmp`
+  await writeFile(temp, `${JSON.stringify(next, null, 2)}\n`, { mode: 0o600 })
+  await rename(temp, SYNC_FILE)
+  return next
+}
+
 /** 安卓壳 APK：构建时由 ../dsh-memo-app/build.sh 拷进来。 */
 const APP_APK_PATH = join(dirname(fileURLToPath(import.meta.url)), 'app', 'dsh-memo.apk')
 const IMAGE_DIR = join(homedir(), '.dsh', 'dsh-memo', 'images')
@@ -1297,7 +1346,7 @@ function injectPwaHead(html) {
     '<meta name="apple-mobile-web-app-capable" content="yes">',
     '<meta name="apple-mobile-web-app-title" content="便签墙">',
     '<meta name="theme-color" content="#f5c542">',
-    `<script>if ('serviceWorker' in navigator) { navigator.serviceWorker.register('${PWA_ROUTE}/sw.js', { scope: '/' }).catch(function () {}) }</script>`,
+
   ].join('')
   return out.includes('</head>') ? out.replace('</head>', `${tags}</head>`) : `${out}${tags}`
 }
@@ -1645,6 +1694,14 @@ async function dispatch(context, method, args) {
       return context.reminders.firedSince(args?.since)
     case 'sync':
       return sync.syncNow()
+    case 'syncConfig': {
+      if (args?.action === 'set') {
+        await saveSyncConfig(args?.config || {})
+        sync.scheduleSoon(500)
+        return { config: await syncConfigSnapshot() }
+      }
+      return { config: await syncConfigSnapshot() }
+    }
     default:
       throw new Error(`未知操作：${method || '(空)'}`)
   }

@@ -1,5 +1,5 @@
 {
-  "name": "ez-dsh-memo",
+  "name": "@local/dsh-memo",
   "version": "0.1.0",
   "type": "module",
   "description": "A sticky-note wall for DeepSeek Harness: markdown notes, categories, reminders, wiki links, images, and fast-note-sync mirroring.",
