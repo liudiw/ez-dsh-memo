@@ -1,0 +1,18 @@
+{
+  "collection": "ms_dsh_memo_fe20ddfd",
+  "failed_files": [],
+  "indexed_chunks": 2,
+  "indexed_files": 1,
+  "last_completed_at": "2026-11-13T17:49:36.908016Z",
+  "last_started_at": "2026-11-13T17:49:34.908744Z",
+  "last_success_at": "2026-11-13T17:49:36.908016Z",
+  "milvus_uri": "~/.memsearch/milvus.db",
+  "operation": "index",
+  "paths": [
+    "/home/liudi/dsh_workspace/dsh-memo/.memsearch/memory"
+  ],
+  "schema_version": 1,
+  "status": "ok",
+  "total_files": 1,
+  "updated_at": "2026-11-13T17:49:36.908016Z"
+}

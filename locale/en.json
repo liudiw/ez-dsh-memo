@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Memo Wall (dsh-memo)",
+    "description": "A sidebar entry plus a sticky-note wall for fleeting ideas: capture, pin, recolor, search. Notes persist host-side, and the memo tool lets the agent write to the same wall."
+  }
+}
