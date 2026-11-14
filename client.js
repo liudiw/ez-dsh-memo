@@ -2065,32 +2065,44 @@ window.__ModuleLoader__.load({
           return { start: info.text.length - match[0].length, back: match[0].length, query: match[1] || '' };
         };
 
-        /** 在 contenteditable 里选中「结尾 N 个字符」——按文本节点逐个累加，跨节点也准。 */
+        /** 选中「光标前 N 个字符」：优先同文本节点内反向扩展（最稳），跨节点再回退 TreeWalker。 */
         const selectTail = (root, count) => {
           if (!root || count <= 0) return false;
+          const selection = window.getSelection();
+          if (!selection || !selection.rangeCount) return false;
+          const base = selection.getRangeAt(0);
+          const endNode = base.endContainer;
+          // 快路径：触发词通常和光标在同一个文本节点里，直接改 setStart 不会错
+          if (endNode && endNode.nodeType === 3 && endNode.nodeValue && base.endOffset - count >= 0) {
+            const next = document.createRange();
+            next.setStart(endNode, base.endOffset - count);
+            next.setEnd(endNode, base.endOffset);
+            selection.removeAllRanges();
+            selection.addRange(next);
+            return String(next.toString()).length === count;
+          }
+          // 慢路径：跨节点时按文本节点累加定位
           const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
           const items = [];
           let total = 0;
           let current = walker.nextNode();
           while (current) {
             const length = String(current.nodeValue || '').length;
-            items.push({ node: current, start: total, end: total + length });
+            if (length > 0) items.push({ node: current, start: total, end: total + length });
             total += length;
             current = walker.nextNode();
           }
           if (!items.length || total < count) return false;
           const from = total - count;
-          const startItem = items.find((item) => from >= item.start && from <= item.end);
+          const startItem = items.find((item) => from >= item.start && from < item.end);
           const endItem = items[items.length - 1];
           if (!startItem || !endItem) return false;
           const range = document.createRange();
           range.setStart(startItem.node, Math.max(0, from - startItem.start));
           range.setEnd(endItem.node, String(endItem.node.nodeValue || '').length);
-          const selection = window.getSelection();
-          if (!selection) return false;
           selection.removeAllRanges();
           selection.addRange(range);
-          return true;
+          return String(range.toString()).length === count;
         };
 
         /** 用候选替换「@note-query」。 */
