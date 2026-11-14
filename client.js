@@ -1958,15 +1958,26 @@ window.__ModuleLoader__.load({
           try {
             const start = event && event.currentTarget ? event.currentTarget : null;
             const tail = start && start.closest ? start.closest('[data-turn-tail]') : null;
-            const scope = contentScopeOf((tail && tail.parentElement) || start, 14);
-            const cleaned = String(extractContentText(scope) || '')
+            const row = (tail && tail.parentElement) || start;
+            const prev = row && row.previousElementSibling ? row.previousElementSibling : null;
+            const clean = (value) => String(value || '')
               .split('\n')
               .map((line) => line.trim())
               .filter((line) => line && line !== t('capture.button') && line !== t('capture.collect'))
               .join('\n')
               .trim();
+            const prevText = prev ? clean(extractContentText(contentScopeOf(prev, 10) || prev)) : '';
+            const curText = clean(extractContentText(contentScopeOf(row, 14) || row));
+            const parts = [];
+            if (prevText && prevText !== curText) parts.push(`> ${prevText.split('\n').join('\n> ')}`);
+            if (curText) parts.push(curText);
+            const cleaned = parts.join('\n\n').trim();
             if (!cleaned) return;
-            window.dispatchEvent(new CustomEvent('dsh-memo:capture', { detail: { text: cleaned } }));
+            try {
+              window.dispatchEvent(new CustomEvent('dsh-memo:capture', { detail: { text: cleaned } }));
+            } catch (error) {
+              /* 忽略 */
+            }
           } catch (error) {
             console.error('dsh-memo: 收集本轮失败', error);
           }
