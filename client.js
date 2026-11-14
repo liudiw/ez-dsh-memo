@@ -1984,6 +1984,7 @@ window.__ModuleLoader__.load({
         const [tick, setTick] = useState(0);
         const indexRef = useRef(0);
         const lastQueryRef = useRef('');
+        const dismissedRef = useRef('');
         const targetRef = useRef(null);
 
         const isEditable = (node) => node && (node.tagName === 'TEXTAREA' || node.isContentEditable);
@@ -2077,6 +2078,11 @@ window.__ModuleLoader__.load({
               if (query !== lastQueryRef.current) {
                 lastQueryRef.current = query;
                 indexRef.current = 0;
+                dismissedRef.current = ''; // 文本变了，允许重新弹出
+              }
+              if (found && dismissedRef.current === `${found.start}:${found.query}`) {
+                setState(null);
+                return;
               }
               setState(found);
               const box = node.getBoundingClientRect ? node.getBoundingClientRect() : null;
@@ -2106,6 +2112,7 @@ window.__ModuleLoader__.load({
             if (event.key === 'Escape') {
               event.preventDefault();
               event.stopPropagation();
+              dismissedRef.current = `${state.start}:${state.query}`;
               setState(null);
               return;
             }
