@@ -379,8 +379,8 @@ window.__ModuleLoader__.load({
 .dsm-collectBtnUnused{font:inherit;font-size:11.5px;padding:2px 8px;border-radius:999px;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-secondary);cursor:pointer;opacity:.8}
 .dsm-collectBtn:hover{opacity:1;color:var(--dsw-alias-brand-primary)}
 .dsm-captureGroup{display:inline-flex;align-items:center;gap:2px}
-.dsm-mention{position:fixed;z-index:2147482300;width:min(340px,70vw);max-height:240px;overflow-y:auto;padding:5px;border-radius:10px;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base);box-shadow:0 18px 40px -18px rgba(0,0,0,.45)}
-.dsm-mentionItem{display:block;width:100%;text-align:left;font:inherit;font-size:12.5px;padding:5px 8px;border:none;border-radius:6px;background:transparent;color:var(--dsw-alias-label-primary);cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dsm-mention{pointer-events:auto;position:fixed;z-index:2147482300;width:min(340px,70vw);max-height:240px;overflow-y:auto;padding:5px;border-radius:10px;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base);box-shadow:0 18px 40px -18px rgba(0,0,0,.45)}
+.dsm-mentionItem{pointer-events:auto;display:block;width:100%;text-align:left;font:inherit;font-size:12.5px;padding:5px 8px;border:none;border-radius:6px;background:transparent;color:var(--dsw-alias-label-primary);cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dsm-mentionItem[data-active='true']{background:color-mix(in srgb,var(--dsw-alias-brand-primary) 14%,transparent)}
 .dsm-mentionEmpty{padding:6px 8px;font-size:11.5px;color:var(--dsw-alias-label-secondary)}
 .dsm-captureBtn{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;padding:0;border:none;border-radius:7px;background:transparent;color:var(--dsw-alias-label-secondary);cursor:pointer;opacity:.85}
@@ -2037,15 +2037,17 @@ window.__ModuleLoader__.load({
           const replacement = `@便签:${title} `;
           try {
             node.focus({ preventScroll: true });
+            const back = 4 + String(state.query || '').length; // '@便签:' 四个字符 + 查询词
             if (node.tagName === 'TEXTAREA') {
               const value = String(node.value || '');
-              const end = state.start + 4 + String(state.query || '').length;
-              node.setSelectionRange(state.start, Math.min(end, value.length));
+              node.setSelectionRange(Math.max(0, state.start), Math.min(state.start + back, value.length));
             } else {
               const selection = window.getSelection();
-              if (selection && selection.rangeCount) {
+              if (selection && typeof selection.modify === 'function') {
+                for (let step = 0; step < back; step += 1) selection.modify('extend', 'backward', 'character');
+              } else if (selection && selection.rangeCount) {
                 const range = selection.getRangeAt(0).cloneRange();
-                range.setStart(range.endContainer, Math.max(0, range.endOffset - (4 + String(state.query || '').length)));
+                range.setStart(range.endContainer, Math.max(0, range.endOffset - back));
                 selection.removeAllRanges();
                 selection.addRange(range);
               }
@@ -2155,8 +2157,7 @@ window.__ModuleLoader__.load({
               className: 'dsm-mentionItem',
               'data-active': index === indexRef.current ? 'true' : undefined,
               'data-tick': tick,
-              onMouseDown: (event) => event.preventDefault(),
-              onClick: () => applyPick(note),
+              onMouseDown: (event) => { event.preventDefault(); event.stopPropagation(); applyPick(note); },
             }, noteTitleOf(note) || note.id.slice(0, 8)))
             : h('div', { className: 'dsm-mentionEmpty' }, t('mention.empty')));
       };
