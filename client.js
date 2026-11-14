@@ -2024,9 +2024,9 @@ window.__ModuleLoader__.load({
 
         const matchAt = (info) => {
           if (!info) return null;
-          const match = /@(便签|note):([^\s@]{0,40})$/.exec(info.text);
+          const match = /@(?:note|便签)(?:-([^\s@]{0,40}))?$/i.exec(info.text);
           if (!match) return null;
-          return { start: info.text.length - match[0].length, query: match[2] };
+          return { start: info.text.length - match[0].length, back: match[0].length, query: match[1] || '' };
         };
 
         /** 用候选替换「@便签:query」。 */
@@ -2037,7 +2037,9 @@ window.__ModuleLoader__.load({
           const replacement = `@便签:${title} `;
           try {
             node.focus({ preventScroll: true });
-            const back = 4 + String(state.query || '').length; // '@便签:' 四个字符 + 查询词
+            const back = Number.isFinite(state.back) && state.back > 0
+              ? state.back
+              : 5 + 1 + String(state.query || '').length;
             if (node.tagName === 'TEXTAREA') {
               const value = String(node.value || '');
               node.setSelectionRange(Math.max(0, state.start), Math.min(state.start + back, value.length));
