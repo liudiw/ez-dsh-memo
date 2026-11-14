@@ -372,10 +372,11 @@ window.__ModuleLoader__.load({
 .dsm-root[data-skin='paper']{--dsm-skin-bg:linear-gradient(180deg,#fbf7ef,#f4eee2)}
 .dsm-root[data-skin='night']{--dsm-skin-bg:linear-gradient(180deg,#1b1d22,#14161a)}
 .dsm-root[data-skin='warm']{--dsm-skin-bg:linear-gradient(180deg,#fff8f1,#ffefe3)}
-.dsm-collectBtn{font:inherit;font-size:11.5px;padding:2px 8px;border-radius:999px;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-secondary);cursor:pointer;opacity:.8}
+.dsm-collectBtnUnused{font:inherit;font-size:11.5px;padding:2px 8px;border-radius:999px;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-secondary);cursor:pointer;opacity:.8}
 .dsm-collectBtn:hover{opacity:1;color:var(--dsw-alias-brand-primary)}
-.dsm-captureBtn{opacity:.75}
-.dsm-captureBtn:hover{opacity:1}
+.dsm-captureGroup{display:inline-flex;align-items:center;gap:2px}
+.dsm-captureBtn{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;padding:0;border:none;border-radius:7px;background:transparent;color:var(--dsw-alias-label-secondary);cursor:pointer;opacity:.85}
+.dsm-captureBtn:hover{opacity:1;color:var(--dsw-alias-brand-primary);background:var(--dsw-alias-bg-layer-1)}
 .dsm-skinBar{display:flex;gap:5px;padding:0 0 8px}
 .dsm-skinDot{width:14px;height:14px;padding:0;border-radius:50%;border:1px solid var(--dsw-alias-border-l1);cursor:pointer}
 .dsm-skinDot[data-on='true']{box-shadow:0 0 0 2px var(--dsw-alias-brand-primary)}
@@ -1953,6 +1954,24 @@ window.__ModuleLoader__.load({
     /** 会话消息尾部/操作条的「收进便签」按钮：从 DOM 取该条消息的渲染文本。 */
     function makeCaptureButton(t) {
       return function MemoCaptureButton(props) {
+        const collectTurn = (event) => {
+          try {
+            const start = event && event.currentTarget ? event.currentTarget : null;
+            const tail = start && start.closest ? start.closest('[data-turn-tail]') : null;
+            const scope = contentScopeOf((tail && tail.parentElement) || start, 14);
+            const cleaned = String(extractContentText(scope) || '')
+              .split('\n')
+              .map((line) => line.trim())
+              .filter((line) => line && line !== t('capture.button') && line !== t('capture.collect'))
+              .join('\n')
+              .trim();
+            if (!cleaned) return;
+            window.dispatchEvent(new CustomEvent('dsh-memo:capture', { detail: { text: cleaned } }));
+          } catch (error) {
+            console.error('dsh-memo: 收集本轮失败', error);
+          }
+        };
+
         const collect = (event) => {
           try {
             const start = event && event.currentTarget ? event.currentTarget : null;
@@ -1974,14 +1993,22 @@ window.__ModuleLoader__.load({
             console.error('dsh-memo: 收集消息失败', error);
           }
         };
-        return h('button', {
-          type: 'button',
-          className: 'dsm-iconBtn dsm-captureBtn',
-          title: t('capture.button'),
-          'aria-label': t('capture.button'),
-          'data-message-id': props && props.messageId ? props.messageId : undefined,
-          onClick: collect,
-        }, h(Icon, { name: 'pin', size: 13 }));
+        return h('span', { className: 'dsm-captureGroup' },
+          h('button', {
+            type: 'button',
+            className: 'dsm-captureBtn',
+            title: t('capture.button'),
+            'aria-label': t('capture.button'),
+            'data-message-id': props && props.messageId ? props.messageId : undefined,
+            onClick: collect,
+          }, h(Icon, { name: 'pin', size: 16 })),
+          h('button', {
+            type: 'button',
+            className: 'dsm-captureBtn',
+            title: t('capture.collect'),
+            'aria-label': t('capture.collect'),
+            onClick: collectTurn,
+          }, h(Icon, { name: 'list', size: 16 })));
       };
     }
 
@@ -5754,18 +5781,6 @@ window.__ModuleLoader__.load({
           }, MemoCaptureButton));
         } catch (error) {
           console.error('dsh-memo: 消息收集按钮注册失败', error);
-        }
-
-        // 每一轮对话尾部：收集整轮
-        try {
-          const MemoTurnCaptureButton = makeTurnCaptureButton(t);
-          ctx.slots.inject('conversation.chat.turnTail', () => ctx.slots.register({
-            name: 'conversation.chat.turnTail',
-            id: 'memo-collect-turn',
-            order: 30,
-          }, MemoTurnCaptureButton));
-        } catch (error) {
-          console.error('dsh-memo: 整轮收集按钮注册失败', error);
         }
 
         // 设置 → 便签墙（fast-note-sync 配置）
