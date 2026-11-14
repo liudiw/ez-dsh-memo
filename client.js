@@ -87,6 +87,8 @@ window.__ModuleLoader__.load({
       'note.drag': '拖动排序',
       'note.categories': '分类',
       'image.add': '插入图片（也可以直接粘贴）',
+      'mention.empty': '没有匹配的便签',
+      'mention.empty': 'No matching notes',
       'note.quote': '引用到对话（@便签:标题）',
       'note.quote': 'Quote in chat (@note:title)',
       'image.export': '导出为图片',
@@ -377,6 +379,10 @@ window.__ModuleLoader__.load({
 .dsm-collectBtnUnused{font:inherit;font-size:11.5px;padding:2px 8px;border-radius:999px;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-secondary);cursor:pointer;opacity:.8}
 .dsm-collectBtn:hover{opacity:1;color:var(--dsw-alias-brand-primary)}
 .dsm-captureGroup{display:inline-flex;align-items:center;gap:2px}
+.dsm-mention{position:fixed;z-index:2147482300;width:min(340px,70vw);max-height:240px;overflow-y:auto;padding:5px;border-radius:10px;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base);box-shadow:0 18px 40px -18px rgba(0,0,0,.45)}
+.dsm-mentionItem{display:block;width:100%;text-align:left;font:inherit;font-size:12.5px;padding:5px 8px;border:none;border-radius:6px;background:transparent;color:var(--dsw-alias-label-primary);cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dsm-mentionItem[data-active='true']{background:color-mix(in srgb,var(--dsw-alias-brand-primary) 14%,transparent)}
+.dsm-mentionEmpty{padding:6px 8px;font-size:11.5px;color:var(--dsw-alias-label-secondary)}
 .dsm-captureBtn{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;padding:0;border:none;border-radius:7px;background:transparent;color:var(--dsw-alias-label-secondary);cursor:pointer;opacity:.85}
 .dsm-captureBtn:hover{opacity:1;color:var(--dsw-alias-brand-primary);background:var(--dsw-alias-bg-layer-1)}
 .dsm-skinBar{display:flex;gap:5px;padding:0 0 8px}
@@ -1966,6 +1972,127 @@ window.__ModuleLoader__.load({
         out.push(line);
       }
       return out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+    }
+
+    /** 会话输入框里的 @便签: 候选面板（监听 composer，不抢占输入）。 */
+    function makeNoteMention(t) {
+      return function MemoNoteMention() {
+        const [state, setState] = useState(null);
+        const [notes, setNotes] = useState([]);
+        const indexRef = useRef(0);
+        const inputRef = useRef(null);
+        const [loading, setLoading] = useState(false);
+
+        const atQueryAt = (value, caret) => {
+          const upto = String(value || '').slice(0, Number.isFinite(caret) ? caret : String(value || '').length);
+          const match = /@(便签|note):([^\s@]{0,40})$/.exec(upto);
+          if (!match) return null;
+          return { start: upto.length - match[0].length, query: match[2] };
+        };
+
+        const loadNotes = useCallback(async () => {
+          if (loading) return;
+          setLoading(true);
+          try {
+            const result = await apiCall('list');
+            setNotes((result && Array.isArray(result.notes) ? result.notes : []).filter((note) => note.archived !== true));
+          } catch (error) {
+            setNotes([]);
+          } finally {
+            setLoading(false);
+          }
+        }, [loading]);
+
+        const pick = (input, note) => {
+          if (!input || !note || !state) return;
+          const title = noteTitleOf(note) || note.id.slice(0, 8);
+          const text = String(input.value || '');
+          const consumed = state.start + 4 + String(state.query || '').length; // '@便签:' = 4
+          const next = `${text.slice(0, state.start)}@便签:${title} ${text.slice(consumed)}`;
+          try {
+            input.focus();
+            if ('value' in input) input.select();
+            if (typeof document.execCommand === 'function') document.execCommand('insertText', false, next);
+            else if ('value' in input) input.value = next;
+          } catch (error) {
+            /* 忽略 */
+          }
+          setState(null);
+        };
+
+        useEffect(() => {
+          const find = () => {
+            if (typeof document === 'undefined') return null;
+            const nodes = Array.from(document.querySelectorAll('textarea, [contenteditable="true"]'));
+            const usable = nodes.filter((node) => {
+              if (!node || node.className && String(node.className).includes('dsm-')) return false;
+              const rect = node.getBoundingClientRect ? node.getBoundingClientRect() : null;
+              return Boolean(rect && rect.width > 120 && rect.height > 14);
+            });
+            return usable.length ? usable[usable.length - 1] : null;
+          };
+          const input = find();
+          if (!input) return undefined;
+          inputRef.current = input;
+          loadNotes();
+
+          const onChange = () => {
+            const found = atQueryAt(input.value, input.selectionStart);
+            if (found) indexRef.current = 0;
+            setState(found);
+          };
+          const onKeyDown = (event) => {
+            if (!state) return;
+            if (event.key === 'Escape') {
+              event.stopPropagation();
+              setState(null);
+              return;
+            }
+            const needle = String(state.query || '').trim().toLowerCase();
+            const list = notes.filter((note) => (!needle ? true : String(note.text || '').toLowerCase().includes(needle)));
+            if (!list.length) return;
+            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+              event.preventDefault();
+              event.stopPropagation();
+              indexRef.current = Math.max(0, Math.min(indexRef.current + (event.key === 'ArrowDown' ? 1 : -1), list.length - 1));
+              setState({ ...state });
+              return;
+            }
+            if (event.key === 'Enter' || event.key === 'Tab') {
+              event.preventDefault();
+              event.stopPropagation();
+              const picked = list[Math.min(indexRef.current, list.length - 1)];
+              if (!picked) return;
+              pick(input, picked);
+            }
+          };
+          input.addEventListener('input', onChange);
+          input.addEventListener('keydown', onKeyDown, true);
+          return () => {
+            input.removeEventListener('input', onChange);
+            input.removeEventListener('keydown', onKeyDown, true);
+          };
+        }, [state, notes, loadNotes]);
+
+        if (!state) return null;
+        const needle = String(state.query || '').trim().toLowerCase();
+        const list = notes.filter((note) => (!needle ? true : String(note.text || '').toLowerCase().includes(needle))).slice(0, 8);
+        const rect = inputRef.current && inputRef.current.getBoundingClientRect ? inputRef.current.getBoundingClientRect() : null;
+        return h('div', {
+          className: 'dsm-mention',
+          style: rect ? { left: `${Math.round(rect.left)}px`, bottom: `${Math.round(window.innerHeight - rect.top + 8)}px` } : undefined,
+        },
+          list.length
+            ? list.map((note, index) => h('button', {
+              key: note.id,
+              type: 'button',
+              className: 'dsm-mentionItem',
+              'data-active': index === indexRef.current ? 'true' : undefined,
+              onMouseDown: (event) => event.preventDefault(),
+              onClick: () => pick(inputRef.current, note),
+            }, noteTitleOf(note) || note.id.slice(0, 8)))
+            : h('div', { className: 'dsm-mentionEmpty' }, t('mention.empty')));
+      };
     }
 
     /** 往会话输入框插入一段文本：优先 execCommand，失败则复制到剪贴板。 */
@@ -5938,6 +6065,17 @@ window.__ModuleLoader__.load({
           locale: NS,
           label: () => t('panel.title'),
         }, (props) => h(MemoRailIcon, { size: props.size, active: props.active })));
+
+        // 会话输入框：@便签: 候选
+        try {
+          const MemoNoteMention = makeNoteMention(t);
+          ctx.slots.inject('conversation.input.overlay', () => ctx.slots.register({
+            name: 'conversation.input.overlay',
+            id: 'memo-mention',
+          }, MemoNoteMention));
+        } catch (error) {
+          console.error('dsh-memo: @便签 候选注册失败', error);
+        }
 
         // 每条助手消息的操作条：收进便签
         try {
