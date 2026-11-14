@@ -1974,6 +1974,25 @@ window.__ModuleLoader__.load({
       return out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
     }
 
+    /** 可靠复制（隐藏 textarea + execCommand('copy')，不需要剪贴板权限）。 */
+    function copyPlain(text) {
+      try {
+        const area = document.createElement('textarea');
+        area.value = text;
+        area.setAttribute('readonly', 'readonly');
+        area.style.position = 'fixed';
+        area.style.opacity = '0';
+        area.style.left = '-9999px';
+        document.body.appendChild(area);
+        area.select();
+        const ok = document.execCommand('copy');
+        area.remove();
+        return ok;
+      } catch (error) {
+        return false;
+      }
+    }
+
     /** 轻量浮层提示（不依赖 React，2 秒后自动移除）。 */
     function flashHint(text) {
       try {
@@ -2092,19 +2111,18 @@ window.__ModuleLoader__.load({
               console.warn('[dsh-memo] 无法定位 @note 文本段，放弃替换');
               return;
             }
-            let inserted = false;
-            if (typeof document.execCommand === 'function') inserted = document.execCommand('insertText', false, replacement);
-            if (!inserted) throw new Error('execCommand refused');
-          } catch (error) {
-            // 兜底：复制到剪贴板并提示粘贴（contenteditable 常常拒绝 execCommand）
-            try {
-              if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(`@便签:${noteTitleOf(note) || note.id.slice(0, 8)} `);
-                flashHint('已复制便签引用，按 Ctrl+V 粘贴');
-              }
-            } catch (inner) {
-              /* 忽略 */
+            const accepted = typeof document.execCommand === 'function'
+              && document.execCommand('insertText', false, replacement);
+            // 校验：编辑器实际内容里有没有真的出现标题（execCommand 常返回 true 却什么都没做）
+            const content = String(node.textContent || node.value || '');
+            const written = content.indexOf(title) >= 0;
+            if (!accepted || !written) {
+              const clipboardOk = copyPlain(replacement);
+              flashHint(clipboardOk ? '已复制便签引用，按 Ctrl+V 粘贴' : '插入失败，请手动输入 @便签:标题');
             }
+          } catch (error) {
+            const clipboardOk = copyPlain(replacement);
+            flashHint(clipboardOk ? '已复制便签引用，按 Ctrl+V 粘贴' : '插入失败，请手动输入 @便签:标题');
           }
           setState(null);
         };
