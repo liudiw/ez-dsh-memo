@@ -11,6 +11,8 @@ window.__ModuleLoader__.load({
     const API_PATH = '/dsh-memo/api';
     const DEFAULT_COLOR = 'amber';
     const COLOR_KEYS = ['amber', 'rose', 'sky', 'green', 'violet'];
+    /** @便签 候选面板开关：先关闭（输入框里 @ 的行为与 DSH 文件引用冲突，待重做）。 */
+    const ENABLE_NOTE_MENTION = false;
     /** 便签尺寸：与宿主 index.js 的 MIN_WIDTH/MAX_WIDTH/MIN_HEIGHT/MAX_HEIGHT 保持一致。 */
     // 默认新建尺寸同时是缩小的下限（宿主 index.js 用同一组数字）。
     const DEFAULT_NOTE_WIDTH = 260;
@@ -6133,8 +6135,9 @@ window.__ModuleLoader__.load({
           label: () => t('panel.title'),
         }, (props) => h(MemoRailIcon, { size: props.size, active: props.active })));
 
-        // 会话输入框：@便签: 候选
+        // 会话输入框：@便签: 候选（已按用户要求暂时关闭）
         try {
+          if (!ENABLE_NOTE_MENTION) throw new Error('disabled');
           const MemoNoteMention = makeNoteMention(t);
           ctx.slots.inject('conversation.input.overlay', () => ctx.slots.register({
             name: 'conversation.input.overlay',
