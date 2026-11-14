@@ -2034,7 +2034,7 @@ window.__ModuleLoader__.load({
           const node = targetRef.current;
           if (!node || !note || !state) return;
           const title = noteTitleOf(note) || note.id.slice(0, 8);
-          const replacement = `@便签:${title} `;
+          const replacement = `[[便签:${title}]] `;
           try {
             node.focus({ preventScroll: true });
             if (node.tagName === 'TEXTAREA') {
@@ -3892,7 +3892,7 @@ window.__ModuleLoader__.load({
                 'aria-label': t('note.quote'),
                 onClick: () => {
                   const title = noteTitleOf(note) || note.id.slice(0, 8);
-                  insertIntoComposer(`@便签:${title} `);
+                  insertIntoComposer(`[[便签:${title}]] `);
                 },
               }, h(Icon, { name: 'list', size: 14 })),
               h('button', {
