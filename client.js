@@ -1974,6 +1974,23 @@ window.__ModuleLoader__.load({
       return out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
     }
 
+    /** 轻量浮层提示（不依赖 React，2 秒后自动移除）。 */
+    function flashHint(text) {
+      try {
+        if (typeof document === 'undefined' || !document.body) return;
+        const node = document.createElement('div');
+        node.textContent = text;
+        node.setAttribute('style', 'position:fixed;left:50%;bottom:96px;transform:translateX(-50%);'
+          + 'z-index:2147483600;padding:8px 14px;border-radius:999px;font-size:12.5px;'
+          + 'background:var(--dsw-alias-bg-base,#fff);color:var(--dsw-alias-label-primary,#222);'
+          + 'border:1px solid var(--dsw-alias-border-l1,#ddd);box-shadow:0 12px 30px -12px rgba(0,0,0,.45)');
+        document.body.appendChild(node);
+        setTimeout(() => node.remove(), 2200);
+      } catch (error) {
+        /* 忽略 */
+      }
+    }
+
     /** 会话输入框里的 @便签: 候选面板：兼容 contenteditable 的 composer。 */
     function makeNoteMention(t) {
       return function MemoNoteMention() {
@@ -2075,9 +2092,19 @@ window.__ModuleLoader__.load({
               console.warn('[dsh-memo] 无法定位 @note 文本段，放弃替换');
               return;
             }
-            if (typeof document.execCommand === 'function') document.execCommand('insertText', false, replacement);
+            let inserted = false;
+            if (typeof document.execCommand === 'function') inserted = document.execCommand('insertText', false, replacement);
+            if (!inserted) throw new Error('execCommand refused');
           } catch (error) {
-            /* 忽略 */
+            // 兜底：复制到剪贴板并提示粘贴（contenteditable 常常拒绝 execCommand）
+            try {
+              if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(`@便签:${noteTitleOf(note) || note.id.slice(0, 8)} `);
+                flashHint('已复制便签引用，按 Ctrl+V 粘贴');
+              }
+            } catch (inner) {
+              /* 忽略 */
+            }
           }
           setState(null);
         };
