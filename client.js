@@ -87,6 +87,8 @@ window.__ModuleLoader__.load({
       'note.drag': '拖动排序',
       'note.categories': '分类',
       'image.add': '插入图片（也可以直接粘贴）',
+      'image.export': '导出为图片',
+      'image.export': 'Export as image',
       'image.uploading': '正在上传图片…',
       'image.fail': '图片上传失败',
       'note.toggleTask': '勾选/取消',
@@ -116,6 +118,9 @@ window.__ModuleLoader__.load({
       'quick.saved': '已存到便签墙',
       'quick.recent': '最近的便签',
       'quick.remindHint': '可选：设个提醒',
+      'skin.paper': '纸感皮肤',
+      'skin.night': '夜间皮肤',
+      'skin.warm': '暖白皮肤',
       'set.title': '便签墙',
       'set.sync': '同步到 fast-note-sync',
       'set.enable': '启用同步',
@@ -135,6 +140,11 @@ window.__ModuleLoader__.load({
       'set.errApi': '服务地址要以 http:// 或 https:// 开头',
       'set.errVault': 'Vault 名称不能为空',
       'set.tip': '便签始终保存在本机 ~/.dsh/dsh-memo/notes.json，同步只是把它镜像成 Markdown。',
+      'quick.reset': '重置（清空全部）',
+      'quick.keepDraft': '内容还没存成便签，要留着当草稿吗？',
+      'quick.saveDraft': '存草稿',
+      'quick.discard': '不存，清空',
+      'quick.cancel': '取消',
       'quick.pickCategory': '分类',
       'quick.pickCategoryHint': '分类（Alt+C）',
       'drawer.title': '便签',
@@ -273,6 +283,9 @@ window.__ModuleLoader__.load({
       'quick.saved': 'Saved',
       'quick.recent': 'Recent notes',
       'quick.remindHint': 'Optional reminder',
+      'skin.paper': 'Paper skin',
+      'skin.night': 'Night skin',
+      'skin.warm': 'Warm skin',
       'set.title': 'Sticky notes',
       'set.sync': 'Sync to fast-note-sync',
       'set.enable': 'Enable sync',
@@ -292,6 +305,11 @@ window.__ModuleLoader__.load({
       'set.errApi': 'URL must start with http:// or https://',
       'set.errVault': 'Vault name is required',
       'set.tip': 'Notes always live on this machine at ~/.dsh/dsh-memo/notes.json; sync only mirrors them as Markdown.',
+      'quick.reset': 'Reset (clear all)',
+      'quick.keepDraft': 'Not saved as a note yet. Keep it as a draft?',
+      'quick.saveDraft': 'Keep draft',
+      'quick.discard': 'Discard',
+      'quick.cancel': 'Cancel',
       'quick.pickCategory': 'Category',
       'quick.pickCategoryHint': 'Category (Alt+C)',
       'drawer.title': 'Notes',
@@ -347,6 +365,13 @@ window.__ModuleLoader__.load({
     };
 
     const CSS = `
+.dsm-root[data-skin='paper']{--dsm-skin-bg:linear-gradient(180deg,#fbf7ef,#f4eee2)}
+.dsm-root[data-skin='night']{--dsm-skin-bg:linear-gradient(180deg,#1b1d22,#14161a)}
+.dsm-root[data-skin='warm']{--dsm-skin-bg:linear-gradient(180deg,#fff8f1,#ffefe3)}
+.dsm-skinBar{display:flex;gap:5px;padding:0 0 8px}
+.dsm-skinDot{width:14px;height:14px;padding:0;border-radius:50%;border:1px solid var(--dsw-alias-border-l1);cursor:pointer}
+.dsm-skinDot[data-on='true']{box-shadow:0 0 0 2px var(--dsw-alias-brand-primary)}
+.dsm-wall[data-skin-bg]{background:var(--dsm-skin-bg)}
 .dsm-root{position:relative;box-sizing:border-box;display:flex;flex-direction:column;height:100%;min-height:0;overflow:hidden;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font-family:inherit}
 .dsm-scroll{flex:1 1 auto;min-height:0;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--dsw-alias-border-l2) transparent}
 .dsm-scroll::-webkit-scrollbar{width:8px;height:8px}
@@ -604,6 +629,8 @@ window.__ModuleLoader__.load({
 .dsm-quickLayer{position:fixed;inset:0;z-index:2147482000;pointer-events:auto;display:flex;align-items:flex-start;justify-content:center;padding-top:12vh;background:color-mix(in srgb,var(--dsw-alias-label-primary) 20%,transparent)}
 .dsm-quickPanel{pointer-events:auto;box-sizing:border-box;width:min(520px,92vw);display:flex;flex-direction:column;gap:8px;padding:12px 14px;border-radius:14px;background:var(--dsw-alias-bg-base);border:1px solid var(--dsw-alias-border-l1);box-shadow:0 30px 70px -30px rgba(0,0,0,.55)}
 .dsm-quickHead{display:flex;align-items:center;gap:7px;font-size:13px}
+.dsm-quickConfirm{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px;padding:7px 8px;border-radius:8px;background:color-mix(in srgb,var(--dsw-alias-brand-primary) 8%,transparent);border:1px solid var(--dsw-alias-border-l1)}
+.dsm-quickConfirm>span{flex:1 1 100%;color:var(--dsw-alias-label-secondary)}
 .dsm-quickHint{flex:1 1 auto;text-align:right;font-size:11px;color:var(--dsw-alias-label-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dsm-quickInput{box-sizing:border-box;width:100%;min-height:88px;max-height:40vh;resize:vertical;font:inherit;font-size:14px;line-height:1.65;padding:9px 10px;border-radius:9px;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);color:inherit;outline:none}
 .dsm-quickInput:focus{border-color:var(--dsw-alias-brand-primary)}
@@ -1865,6 +1892,82 @@ window.__ModuleLoader__.load({
       }
     }
 
+    /** 把一张便签画成 PNG 并下载（纸感底色 + 自动换行，无需额外依赖）。 */
+    function exportNoteImage(note, t) {
+      try {
+        const accent = ACCENTS[note.color] || ACCENTS[DEFAULT_COLOR];
+        const lines = String(note.text || '').split('\n');
+        const wrapped = [];
+        for (const line of lines) {
+          let rest = line;
+          if (!rest.trim()) { wrapped.push(''); continue; }
+          while (rest.length > 0) {
+            const chunk = rest.slice(0, 26);
+            rest = rest.slice(chunk.length);
+            wrapped.push(chunk);
+          }
+        }
+        const width = 760;
+        const pad = 44;
+        const lineHeight = 34;
+        const height = Math.max(320, pad * 2 + wrapped.length * lineHeight + 72);
+        const canvas = document.createElement('canvas');
+        canvas.width = width * 2;
+        canvas.height = height * 2;
+        const ctx = canvas.getContext('2d');
+        ctx.scale(2, 2);
+        ctx.fillStyle = '#f6f1e7';
+        ctx.fillRect(0, 0, width, height);
+        ctx.fillStyle = accent;
+        ctx.fillRect(0, 0, 10, height);
+        ctx.fillStyle = 'rgba(0,0,0,0.06)';
+        ctx.fillRect(pad, height - 74, width - pad * 2, 1);
+        ctx.fillStyle = '#33302b';
+        ctx.font = '26px -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif';
+        ctx.textBaseline = 'top';
+        wrapped.forEach((line, index) => {
+          ctx.fillText(line, pad, pad + index * lineHeight);
+        });
+        ctx.fillStyle = 'rgba(0,0,0,0.38)';
+        ctx.font = '15px -apple-system, "PingFang SC", sans-serif';
+        ctx.fillText(new Date(note.createdAt || Date.now()).toLocaleString(), pad, height - 58);
+        ctx.fillText('ez-dsh-memo', width - pad - 96, height - 58);
+        canvas.toBlob((blob) => {
+          if (!blob) return;
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `memo-${new Date().toISOString().slice(0, 10)}.png`;
+          link.click();
+          setTimeout(() => URL.revokeObjectURL(url), 4000);
+        }, 'image/png');
+      } catch (error) {
+        console.error('dsh-memo: 导出图片失败', error);
+      }
+    }
+
+    /** 快速便签的草稿：正文 + 颜色 + 分类 + 提醒时间，一起存 localStorage。 */
+    function readDraft() {
+      const empty = { text: '', color: DEFAULT_COLOR, categoryIds: [], remindAt: '' };
+      try {
+        if (typeof localStorage === 'undefined') return empty;
+        const raw = localStorage.getItem('dsh-memo:draft');
+        if (!raw) return empty;
+        if (raw.charAt(0) === '{') {
+          const parsed = JSON.parse(raw);
+          return {
+            text: typeof parsed.text === 'string' ? parsed.text : '',
+            color: COLOR_KEYS.includes(parsed.color) ? parsed.color : DEFAULT_COLOR,
+            categoryIds: Array.isArray(parsed.categoryIds) ? parsed.categoryIds.filter((id) => typeof id === 'string') : [],
+            remindAt: typeof parsed.remindAt === 'string' ? parsed.remindAt : '',
+          };
+        }
+        return { ...empty, text: raw };
+      } catch (error) {
+        return empty;
+      }
+    }
+
     /** 快捷键/按钮可能同时触发一次，用时间戳去重（只有 350ms 内的第二次被丢弃）。 */
     let captureGuardAt = 0;
     function captureGuardPass() {
@@ -1872,6 +1975,17 @@ window.__ModuleLoader__.load({
       if (now - captureGuardAt < 350) return false;
       captureGuardAt = now;
       return true;
+    }
+
+    /** 皮肤：三套背景（纸感/夜/暖白），存在 localStorage。 */
+    const SKINS = ['paper', 'night', 'warm'];
+    function readSkin() {
+      try {
+        const value = typeof localStorage === 'undefined' ? null : localStorage.getItem('dsh-memo:skin');
+        return SKINS.includes(value) ? value : '';
+      } catch (error) {
+        return '';
+      }
     }
 
     /** 设置 → 便签墙：配置 fast-note-sync（token 只显示尾号，留空表示不改）。 */
@@ -2028,17 +2142,18 @@ window.__ModuleLoader__.load({
     function makeQuickCapture(t, actions) {
       return function QuickCapture() {
         const [open, setOpen] = useState(false);
-        const [draft, setDraft] = useState('');
-        const [color, setColor] = useState(DEFAULT_COLOR);
+        const [draft, setDraft] = useState(() => readDraft().text);
+        const [color, setColor] = useState(() => readDraft().color);
         const [recent, setRecent] = useState([]);
         const [busy, setBusy] = useState(false);
         const [flash, setFlash] = useState('');
-        const [remindAt, setRemindAt] = useState('');
+        const [remindAt, setRemindAt] = useState(() => readDraft().remindAt);
         const [catOpen, setCatOpen] = useState(false);
+        const [confirmClose, setConfirmClose] = useState(false);
         const [catIndex, setCatIndex] = useState(0);
         const catOpenRef = useRef(false);
         const [categories, setCategories] = useState([]);
-        const [categoryIds, setCategoryIds] = useState([]);
+        const [categoryIds, setCategoryIds] = useState(() => readDraft().categoryIds);
         const [wiki, setWiki] = useState(null);
         const [wikiIndex, setWikiIndex] = useState(0);
         const [view, setView] = useState(null);
@@ -2061,6 +2176,21 @@ window.__ModuleLoader__.load({
           }
         }, []);
 
+        // 草稿自动落盘：关窗口/刷新/重启都能续写
+        useEffect(() => {
+          try {
+            if (typeof localStorage === 'undefined') return undefined;
+            const timer = setTimeout(() => {
+              const empty = !draft && categoryIds.length === 0 && !remindAt && color === DEFAULT_COLOR;
+              if (empty) localStorage.removeItem('dsh-memo:draft');
+              else localStorage.setItem('dsh-memo:draft', JSON.stringify({ text: draft, color, categoryIds, remindAt }));
+            }, 300);
+            return () => clearTimeout(timer);
+          } catch (error) {
+            return undefined;
+          }
+        }, [draft, color, categoryIds, remindAt]);
+
         const show = useCallback(() => {
           if (!open && typeof document !== 'undefined') prevFocus.current = document.activeElement;
           setOpen(true);
@@ -2070,9 +2200,32 @@ window.__ModuleLoader__.load({
 
         const hide = useCallback(() => {
           setOpen(false);
+          setConfirmClose(false);
           setFlash('');
           restoreFocus(prevFocus.current);
         }, []);
+
+        /** 清空全部编辑状态（正文/颜色/分类/提醒），并删掉草稿。 */
+        const resetAll = useCallback(() => {
+          setDraft('');
+          setColor(DEFAULT_COLOR);
+          setCategoryIds([]);
+          setRemindAt('');
+          setFlash('');
+          setConfirmClose(false);
+          try {
+            if (typeof localStorage !== 'undefined') localStorage.removeItem('dsh-memo:draft');
+          } catch (error) {
+            /* 忽略 */
+          }
+        }, []);
+
+        /** 点 × 时：有内容先问，空则直接关。 */
+        const requestClose = useCallback(() => {
+          const dirty = Boolean(draft.trim()) || categoryIds.length > 0 || Boolean(remindAt) || color !== DEFAULT_COLOR;
+          if (dirty) setConfirmClose(true);
+          else hide();
+        }, [draft, categoryIds, remindAt, color, hide]);
 
         useEffect(() => {
           catOpenRef.current = catOpen;
@@ -2123,7 +2276,11 @@ window.__ModuleLoader__.load({
             if (event.key === ' ' || event.key === 'Spacebar') {
               event.preventDefault();
               const picked = categories[catIndex];
-              if (picked) setCategoryId((current) => (current === picked.id ? '' : picked.id));
+              if (picked) {
+                setCategoryIds((current) => (current.indexOf(picked.id) >= 0
+                  ? current.filter((id) => id !== picked.id)
+                  : current.concat(picked.id)));
+              }
               return;
             }
             if (event.key === 'Enter') {
@@ -2266,6 +2423,7 @@ window.__ModuleLoader__.load({
             if (categoryIds.length) args.categoryIds = categoryIds.slice();
             await apiCall('add', args);
             setDraft('');
+            try { if (typeof localStorage !== 'undefined') localStorage.removeItem('dsh-memo:draft'); } catch (error) { /* 忽略 */ }
             setRemindAt('');
             setCategoryIds([]);
             setFlash(t('quick.saved'));
@@ -2387,10 +2545,25 @@ window.__ModuleLoader__.load({
               h('button', {
                 type: 'button',
                 className: 'dsm-iconBtn',
+                title: t('quick.reset'),
+                'aria-label': t('quick.reset'),
+                onMouseDown: (event) => event.preventDefault(),
+                onClick: resetAll,
+              }, h(Icon, { name: 'refresh', size: 13 })),
+              h('button', {
+                type: 'button',
+                className: 'dsm-iconBtn',
                 title: t('view.close'),
                 'aria-label': t('view.close'),
-                onClick: hide,
+                onClick: requestClose,
               }, h(Icon, { name: 'close', size: 13 }))),
+            confirmClose
+              ? h('div', { className: 'dsm-quickConfirm' },
+                h('span', null, t('quick.keepDraft')),
+                h('button', { type: 'button', className: 'dsm-btn dsm-btnPrimary', onClick: () => hide() }, t('quick.saveDraft')),
+                h('button', { type: 'button', className: 'dsm-btn', onClick: () => { resetAll(); hide(); } }, t('quick.discard')),
+                h('button', { type: 'button', className: 'dsm-btn', onClick: () => setConfirmClose(false) }, t('quick.cancel')))
+              : null,
             h('textarea', {
               ref: areaRef,
               className: 'dsm-quickInput',
@@ -2403,16 +2576,6 @@ window.__ModuleLoader__.load({
                 setWikiIndex(0);
               },
               onKeyDown: (event) => {
-                if (catOpen && (event.key === ' ' || event.key === 'Spacebar')) {
-                  event.preventDefault();
-                  const picked = categories[catIndex];
-                  if (picked) {
-                    setCategoryIds((current) => (current.indexOf(picked.id) >= 0
-                      ? current.filter((id) => id !== picked.id)
-                      : current.concat(picked.id)));
-                  }
-                  return;
-                }
                 if (wiki) {
                   if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
                     event.preventDefault();
@@ -3195,6 +3358,13 @@ window.__ModuleLoader__.load({
               h('button', {
                 type: 'button',
                 className: 'dsm-iconBtn',
+                title: t('image.export'),
+                'aria-label': t('image.export'),
+                onClick: () => exportNoteImage(note, t),
+              }, h(Icon, { name: 'image', size: 14 })),
+              h('button', {
+                type: 'button',
+                className: 'dsm-iconBtn',
                 title: t('view.close'),
                 'aria-label': t('view.close'),
                 onClick: () => props.onClose(),
@@ -3865,16 +4035,6 @@ window.__ModuleLoader__.load({
                 attachImage(file);
               },
               onKeyDown: (event) => {
-                if (catOpen && (event.key === ' ' || event.key === 'Spacebar')) {
-                  event.preventDefault();
-                  const picked = categories[catIndex];
-                  if (picked) {
-                    setCategoryIds((current) => (current.indexOf(picked.id) >= 0
-                      ? current.filter((id) => id !== picked.id)
-                      : current.concat(picked.id)));
-                  }
-                  return;
-                }
                 if (wiki) {
                   if (event.key === 'ArrowDown') {
                     event.preventDefault();
@@ -4044,6 +4204,7 @@ window.__ModuleLoader__.load({
         const rootRef = useRef(null);
         const [editId, setEditId] = useState(null);
         const [onlyRemind, setOnlyRemind] = useState(false);
+        const [skin, setSkin] = useState(() => readSkin());
         const [onlyImage, setOnlyImage] = useState(false);
         const [recentOnly, setRecentOnly] = useState(false);
         const [trash, setTrash] = useState([]);
