@@ -1983,6 +1983,7 @@ window.__ModuleLoader__.load({
         const [ready, setReady] = useState(false);
         const [tick, setTick] = useState(0);
         const indexRef = useRef(0);
+        const lastQueryRef = useRef('');
         const targetRef = useRef(null);
 
         const isEditable = (node) => node && (node.tagName === 'TEXTAREA' || node.isContentEditable);
@@ -2071,7 +2072,12 @@ window.__ModuleLoader__.load({
             const onInput = () => {
               const info = textBeforeCaret(node);
               const found = matchAt(info);
-              if (found) indexRef.current = 0;
+              // 只有「查询词变了」才把游标归零；否则按方向键会被 keyup 反复重置
+              const query = found ? String(found.query || '') : '';
+              if (query !== lastQueryRef.current) {
+                lastQueryRef.current = query;
+                indexRef.current = 0;
+              }
               setState(found);
               const box = node.getBoundingClientRect ? node.getBoundingClientRect() : null;
               setRect(box ? { left: box.left, bottom: box.top } : null);
