@@ -1931,6 +1931,38 @@ window.__ModuleLoader__.load({
       return best;
     }
 
+    /** 找本轮的根节点：最近的、包含 [data-turn-process-answer] 的祖先。 */
+    function turnRootOf(start) {
+      let node = start;
+      for (let depth = 0; depth < 8 && node; depth += 1) {
+        if (node.querySelector && node.querySelector('[data-turn-process-answer]')) return node;
+        node = node.parentElement;
+      }
+      return null;
+    }
+
+    /** 本轮的最后一段回答正文（DSH 会把回答放在 [data-turn-process-answer] 里）。 */
+    function answerTextOf(root) {
+      if (!root || !root.querySelectorAll) return '';
+      const nodes = root.querySelectorAll('[data-turn-process-answer]');
+      if (!nodes || !nodes.length) return '';
+      const last = nodes[nodes.length - 1];
+      return String(last.innerText || '').trim();
+    }
+
+    /** 本轮的提问（[data-turn-trigger]，可能在本轮根节点外的前一个兄弟）。 */
+    function triggerTextOf(root) {
+      if (!root) return '';
+      const inside = root.querySelector ? root.querySelector('[data-turn-trigger]') : null;
+      if (inside && String(inside.innerText || '').trim()) return String(inside.innerText || '').trim();
+      const prev = root.previousElementSibling;
+      if (prev && prev.querySelector) {
+        const found = prev.querySelector('[data-turn-trigger]');
+        if (found && String(found.innerText || '').trim()) return String(found.innerText || '').trim();
+      }
+      return '';
+    }
+
     /** 从某个 DOM 节点向上找一段够长的文本（跳过过短的壳节点）。 */
     function textFromNode(start, maxDepth, skipLabels) {
       let node = start;
@@ -1957,20 +1989,18 @@ window.__ModuleLoader__.load({
         const collectTurn = (event) => {
           try {
             const start = event && event.currentTarget ? event.currentTarget : null;
-            const tail = start && start.closest ? start.closest('[data-turn-tail]') : null;
-            const row = (tail && tail.parentElement) || start;
-            const prev = row && row.previousElementSibling ? row.previousElementSibling : null;
+            const root = turnRootOf(start);
             const clean = (value) => String(value || '')
               .split('\n')
               .map((line) => line.trim())
               .filter((line) => line && line !== t('capture.button') && line !== t('capture.collect'))
               .join('\n')
               .trim();
-            const prevText = prev ? clean(extractContentText(contentScopeOf(prev, 10) || prev)) : '';
-            const curText = clean(extractContentText(contentScopeOf(row, 14) || row));
+            const asked = clean(triggerTextOf(root));
+            const answered = clean(root ? answerTextOf(root) : '');
             const parts = [];
-            if (prevText && prevText !== curText) parts.push(`> ${prevText.split('\n').join('\n> ')}`);
-            if (curText) parts.push(curText);
+            if (asked) parts.push(`> ${asked.split('\n').join('\n> ')}`);
+            if (answered) parts.push(answered);
             const cleaned = parts.join('\n\n').trim();
             if (!cleaned) return;
             try {
@@ -1986,9 +2016,10 @@ window.__ModuleLoader__.load({
         const collect = (event) => {
           try {
             const start = event && event.currentTarget ? event.currentTarget : null;
-            const holder = start && start.closest ? start.closest('[data-message-id]') : null;
-            const scope = contentScopeOf(holder || start, 12);
-            const cleaned = String(extractContentText(scope) || '')
+            const root = turnRootOf(start);
+            const fromAnswer = root ? answerTextOf(root) : '';
+            const scope = fromAnswer ? null : contentScopeOf(start, 8);
+            const cleaned = String(fromAnswer || extractContentText(scope) || '')
               .split('\n')
               .map((line) => line.trim())
               .filter((line) => line && line !== t('capture.button') && line !== t('capture.collect'))
