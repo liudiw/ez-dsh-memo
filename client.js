@@ -2089,33 +2089,6 @@ window.__ModuleLoader__.load({
     /** 会话消息尾部/操作条的「收进便签」按钮：从 DOM 取该条消息的渲染文本。 */
     function makeCaptureButton(t) {
       return function MemoCaptureButton(props) {
-        const collectTurn = (event) => {
-          try {
-            const start = event && event.currentTarget ? event.currentTarget : null;
-            const root = turnRootOf(start);
-            const clean = (value) => String(value || '')
-              .split('\n')
-              .map((line) => line.trim())
-              .filter((line) => line && line !== t('capture.button') && line !== t('capture.collect'))
-              .join('\n')
-              .trim();
-            const asked = clean(triggerTextOf(root) || triggerTextNear(start));
-            const answered = clean(root ? answerTextOf(root) : '');
-            const parts = [];
-            if (asked) parts.push(`> ${asked.split('\n').join('\n> ')}`);
-            if (answered) parts.push(answered);
-            const cleaned = parts.join('\n\n').trim();
-            if (!cleaned) return;
-            try {
-              window.dispatchEvent(new CustomEvent('dsh-memo:capture', { detail: { text: cleaned } }));
-            } catch (error) {
-              /* 忽略 */
-            }
-          } catch (error) {
-            console.error('dsh-memo: 收集本轮失败', error);
-          }
-        };
-
         const collect = (event) => {
           try {
             const start = event && event.currentTarget ? event.currentTarget : null;
@@ -2138,22 +2111,14 @@ window.__ModuleLoader__.load({
             console.error('dsh-memo: 收集消息失败', error);
           }
         };
-        return h('span', { className: 'dsm-captureGroup' },
-          h('button', {
-            type: 'button',
-            className: 'dsm-captureBtn',
-            title: t('capture.button'),
-            'aria-label': t('capture.button'),
-            'data-message-id': props && props.messageId ? props.messageId : undefined,
-            onClick: collect,
-          }, h(Icon, { name: 'pin', size: 16 })),
-          h('button', {
-            type: 'button',
-            className: 'dsm-captureBtn',
-            title: t('capture.collect'),
-            'aria-label': t('capture.collect'),
-            onClick: collectTurn,
-          }, h(Icon, { name: 'list', size: 16 })));
+        return h('button', {
+          type: 'button',
+          className: 'dsm-captureBtn',
+          title: t('capture.button'),
+          'aria-label': t('capture.button'),
+          'data-message-id': props && props.messageId ? props.messageId : undefined,
+          onClick: collect,
+        }, h(Icon, { name: 'pin', size: 16 }));
       };
     }
 
