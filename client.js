@@ -599,7 +599,7 @@ window.__ModuleLoader__.load({
 .dsm-quickBtn{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;padding:0;border:none;border-radius:7px;background:transparent;color:var(--dsw-alias-label-secondary);cursor:pointer}
 .dsm-quickBtn:hover{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary)}
 .dsm-quickHost{position:fixed;inset:0;z-index:2147482000;pointer-events:none}
-.dsm-quickSel{position:fixed;transform:translate(-50%,-120%);pointer-events:auto;display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 9px;border-radius:999px;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font:inherit;font-size:11.5px;box-shadow:0 8px 20px -8px rgba(0,0,0,.4);cursor:pointer}
+.dsm-quickSel{position:fixed;transform:translate(2px,-120%);pointer-events:auto;display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 9px;border-radius:999px;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font:inherit;font-size:11.5px;box-shadow:0 8px 20px -8px rgba(0,0,0,.4);cursor:pointer}
 .dsm-quickSel:hover{background:var(--dsw-alias-bg-layer-1)}
 .dsm-quickRemind{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--dsw-alias-label-secondary)}
 .dsm-quickTime{font:inherit;font-size:12px;height:24px;padding:0 6px;border-radius:6px;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary)}
@@ -1900,6 +1900,36 @@ window.__ModuleLoader__.load({
       }
     }
 
+    /** 只取“正文”文本：优先 markdown 容器，其次 p/li/pre 等文本元素，跳过按钮与统计条。 */
+    function extractContentText(scope) {
+      if (!scope || typeof scope.querySelectorAll !== 'function') return '';
+      const content = scope.querySelector('[class*="markdown" i], [data-markdown], article');
+      if (content && String(content.innerText || '').trim().length > 8) return String(content.innerText || '');
+      const blocks = scope.querySelectorAll('p, li, pre, blockquote, h1, h2, h3, h4, h5, h6, td');
+      const parts = [];
+      blocks.forEach((node) => {
+        if (parts.some((seen) => seen.contains(node))) return;
+        const text = String(node.innerText || '').trim();
+        if (text) parts.push(node);
+      });
+      return parts.map((node) => String(node.innerText || '').trim()).join('\n');
+    }
+
+    /** 找一个尽量“像消息正文”的祖先节点。 */
+    function contentScopeOf(start, maxDepth) {
+      let node = start;
+      let best = null;
+      for (let depth = 0; depth < (maxDepth || 12) && node; depth += 1) {
+        const text = extractContentText(node);
+        if (text.trim().length > 16) {
+          best = node;
+          break;
+        }
+        node = node.parentElement;
+      }
+      return best;
+    }
+
     /** 从某个 DOM 节点向上找一段够长的文本（跳过过短的壳节点）。 */
     function textFromNode(start, maxDepth, skipLabels) {
       let node = start;
@@ -1925,19 +1955,10 @@ window.__ModuleLoader__.load({
       return function MemoCaptureButton(props) {
         const collect = (event) => {
           try {
-            let node = event && event.currentTarget ? event.currentTarget : null;
-            let text = '';
-            for (let depth = 0; depth < 10 && node; depth += 1) {
-              const candidate = node.closest ? node.closest('[data-message-id]') : null;
-              const holder = candidate || node;
-              const raw = String(holder.innerText || '');
-              if (raw.trim().length > 12) {
-                text = raw;
-                break;
-              }
-              node = node.parentElement;
-            }
-            const cleaned = text
+            const start = event && event.currentTarget ? event.currentTarget : null;
+            const holder = start && start.closest ? start.closest('[data-message-id]') : null;
+            const scope = contentScopeOf(holder || start, 12);
+            const cleaned = String(extractContentText(scope) || '')
               .split('\n')
               .map((line) => line.trim())
               .filter((line) => line && line !== t('capture.button') && line !== t('capture.collect'))
@@ -1971,7 +1992,13 @@ window.__ModuleLoader__.load({
           try {
             let node = event && event.currentTarget ? event.currentTarget : null;
             const turn = node && node.closest ? node.closest('[data-turn-tail]') : null;
-            const cleaned = textFromNode((turn && turn.parentElement) || node, 14, [t('capture.button'), t('capture.collect')]);
+            const scope = (turn && turn.parentElement) || node;
+            const cleaned = String(extractContentText(scope) || '')
+              .split('\n')
+              .map((line) => line.trim())
+              .filter((line) => line && line !== t('capture.button') && line !== t('capture.collect'))
+              .join('\n')
+              .trim();
             if (!cleaned) return;
             try {
               window.dispatchEvent(new CustomEvent('dsh-memo:capture', { detail: { text: cleaned } }));
@@ -2436,7 +2463,7 @@ window.__ModuleLoader__.load({
               setBubble(null);
               return;
             }
-            setBubble({ text, x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top) });
+            setBubble({ text, x: Math.round(rect.right), y: Math.round(rect.top) });
           };
           const onUp = () => setTimeout(readSelection, 10);
           const onDown = (event) => {
