@@ -1931,6 +1931,41 @@ window.__ModuleLoader__.load({
       return best;
     }
 
+    /** 规整 Markdown：围栏独占行、列表/标题前补空行、围栏内原样保留。 */
+    function clean(text) {
+      const lines = String(text || '').split('\n').map((line) => line.replace(/[ \t]+$/, ''));
+      const out = [];
+      let inside = false;
+      for (let index = 0; index < lines.length; index += 1) {
+        const line = lines[index];
+        if (line.indexOf('```') >= 0) {
+          if (inside) { out.push('```'); inside = false; continue; }
+          const prev = out.length ? out[out.length - 1] : '';
+          const bare = line.replace(/`/g, '').trim() === '';
+          if (bare && /^\S{1,20}$/.test(prev || '')) {
+            const isLanguage = /^[\w./+-]{1,20}$/.test(prev || '');
+            out.pop();
+            if (out.length && out[out.length - 1] !== '') out.push('');
+            out.push(isLanguage ? `\`\`\`${prev}` : '```');
+          } else {
+            if (prev !== '' && !/^```/.test(prev)) out.push('');
+            out.push(line.replace(/^[^`]*```/, '```'));
+          }
+          inside = true;
+          continue;
+        }
+        if (inside) { out.push(line); continue; }
+        const isBlockStart = /^(#{1,6} |[-*] |\d+\. |\||> )/.test(line);
+        if (isBlockStart && out.length) {
+          const prev = out[out.length - 1];
+          const continues = /^([-*] |\d+\. |\||> )/.test(prev || '');
+          if (prev !== '' && !continues) out.push('');
+        }
+        out.push(line);
+      }
+      return out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+    }
+
     /** 把渲染后的 DOM 还原成 Markdown（保留标题/列表/代码/表格/引用/强调/链接）。 */
     function domToMarkdown(node) {
       if (!node) return '';
@@ -1981,9 +2016,7 @@ window.__ModuleLoader__.load({
         if (tag === 'hr') return '---\n\n';
         return inner();
       };
-      return walk(node)
-        .replace(/\n{3,}/g, '\n\n')
-        .trim();
+      return clean(walk(node));
     }
 
     /** 找按钮之前最近的一次用户提问（[data-turn-trigger] 按文档顺序）。 */
