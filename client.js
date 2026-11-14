@@ -1974,113 +1974,155 @@ window.__ModuleLoader__.load({
       return out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
     }
 
-    /** 会话输入框里的 @便签: 候选面板（监听 composer，不抢占输入）。 */
+    /** 会话输入框里的 @便签: 候选面板：兼容 contenteditable 的 composer。 */
     function makeNoteMention(t) {
       return function MemoNoteMention() {
         const [state, setState] = useState(null);
         const [notes, setNotes] = useState([]);
+        const [rect, setRect] = useState(null);
+        const [ready, setReady] = useState(false);
         const indexRef = useRef(0);
-        const inputRef = useRef(null);
-        const [loading, setLoading] = useState(false);
+        const targetRef = useRef(null);
 
-        const atQueryAt = (value, caret) => {
-          const upto = String(value || '').slice(0, Number.isFinite(caret) ? caret : String(value || '').length);
-          const match = /@(便签|note):([^\s@]{0,40})$/.exec(upto);
-          if (!match) return null;
-          return { start: upto.length - match[0].length, query: match[2] };
+        const isEditable = (node) => node && (node.tagName === 'TEXTAREA' || node.isContentEditable);
+
+        const findComposer = () => {
+          if (typeof document === 'undefined') return null;
+          const nodes = Array.from(document.querySelectorAll('textarea, [contenteditable="true"], [contenteditable=""], [role="textbox"]'));
+          const usable = nodes.filter((node) => {
+            if (!node || (node.className && String(node.className).includes('dsm-'))) return false;
+            const box = node.getBoundingClientRect ? node.getBoundingClientRect() : null;
+            return Boolean(box && box.width > 120 && box.height > 16);
+          });
+          if (!usable.length) return null;
+          usable.sort((a, b) => (b.getBoundingClientRect().width * b.getBoundingClientRect().height) - (a.getBoundingClientRect().width * a.getBoundingClientRect().height));
+          return usable[0];
         };
 
-        const loadNotes = useCallback(async () => {
-          if (loading) return;
-          setLoading(true);
+        /** 读「光标前的文本」，textarea 与 contenteditable 分开处理。 */
+        const textBeforeCaret = (node) => {
           try {
-            const result = await apiCall('list');
-            setNotes((result && Array.isArray(result.notes) ? result.notes : []).filter((note) => note.archived !== true));
+            if (node.tagName === 'TEXTAREA') {
+              const caret = Number.isFinite(node.selectionStart) ? node.selectionStart : String(node.value || '').length;
+              return { text: String(node.value || '').slice(0, caret), caret };
+            }
+            const selection = window.getSelection();
+            if (!selection || !selection.rangeCount) return null;
+            const range = selection.getRangeAt(0).cloneRange();
+            if (!node.contains(range.endContainer)) return null;
+            range.selectNodeContents(node);
+            range.setEnd(selection.getRangeAt(0).endContainer, selection.getRangeAt(0).endOffset);
+            const text = range.toString();
+            return { text, caret: text.length };
           } catch (error) {
-            setNotes([]);
-          } finally {
-            setLoading(false);
+            return null;
           }
-        }, [loading]);
+        };
 
-        const pick = (input, note) => {
-          if (!input || !note || !state) return;
+        const matchAt = (info) => {
+          if (!info) return null;
+          const match = /@(便签|note):([^\s@]{0,40})$/.exec(info.text);
+          if (!match) return null;
+          return { start: info.text.length - match[0].length, query: match[2] };
+        };
+
+        /** 用候选替换「@便签:query」。 */
+        const applyPick = (note) => {
+          const node = targetRef.current;
+          if (!node || !note || !state) return;
           const title = noteTitleOf(note) || note.id.slice(0, 8);
-          const text = String(input.value || '');
-          const consumed = state.start + 4 + String(state.query || '').length; // '@便签:' = 4
-          const next = `${text.slice(0, state.start)}@便签:${title} ${text.slice(consumed)}`;
+          const replacement = `@便签:${title} `;
           try {
-            input.focus();
-            if ('value' in input) input.select();
-            if (typeof document.execCommand === 'function') document.execCommand('insertText', false, next);
-            else if ('value' in input) input.value = next;
+            node.focus({ preventScroll: true });
+            if (node.tagName === 'TEXTAREA') {
+              const value = String(node.value || '');
+              const end = state.start + 4 + String(state.query || '').length;
+              node.setSelectionRange(state.start, Math.min(end, value.length));
+            } else {
+              const selection = window.getSelection();
+              if (selection && selection.rangeCount) {
+                const range = selection.getRangeAt(0).cloneRange();
+                range.setStart(range.endContainer, Math.max(0, range.endOffset - (4 + String(state.query || '').length)));
+                selection.removeAllRanges();
+                selection.addRange(range);
+              }
+            }
+            if (typeof document.execCommand === 'function') document.execCommand('insertText', false, replacement);
           } catch (error) {
             /* 忽略 */
           }
           setState(null);
         };
 
+        // 输入框可能晚于本组件挂载，轮询等待
         useEffect(() => {
-          const find = () => {
-            if (typeof document === 'undefined') return null;
-            const nodes = Array.from(document.querySelectorAll('textarea, [contenteditable="true"]'));
-            const usable = nodes.filter((node) => {
-              if (!node || node.className && String(node.className).includes('dsm-')) return false;
-              const rect = node.getBoundingClientRect ? node.getBoundingClientRect() : null;
-              return Boolean(rect && rect.width > 120 && rect.height > 14);
-            });
-            return usable.length ? usable[usable.length - 1] : null;
-          };
-          const input = find();
-          if (!input) return undefined;
-          inputRef.current = input;
-          loadNotes();
-
-          const onChange = () => {
-            const found = atQueryAt(input.value, input.selectionStart);
-            if (found) indexRef.current = 0;
-            setState(found);
-          };
-          const onKeyDown = (event) => {
-            if (!state) return;
-            if (event.key === 'Escape') {
-              event.stopPropagation();
-              setState(null);
+          let timer = null;
+          let tries = 0;
+          const attach = () => {
+            const node = findComposer();
+            if (!node) {
+              tries += 1;
+              if (tries < 25) timer = setTimeout(attach, 600);
               return;
             }
-            const needle = String(state.query || '').trim().toLowerCase();
-            const list = notes.filter((note) => (!needle ? true : String(note.text || '').toLowerCase().includes(needle)));
-            if (!list.length) return;
-            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-              event.preventDefault();
-              event.stopPropagation();
-              indexRef.current = Math.max(0, Math.min(indexRef.current + (event.key === 'ArrowDown' ? 1 : -1), list.length - 1));
-              setState({ ...state });
-              return;
-            }
-            if (event.key === 'Enter' || event.key === 'Tab') {
-              event.preventDefault();
-              event.stopPropagation();
-              const picked = list[Math.min(indexRef.current, list.length - 1)];
-              if (!picked) return;
-              pick(input, picked);
-            }
+            targetRef.current = node;
+            setReady(true);
+            const onInput = () => {
+              const info = textBeforeCaret(node);
+              const found = matchAt(info);
+              if (found) indexRef.current = 0;
+              setState(found);
+              const box = node.getBoundingClientRect ? node.getBoundingClientRect() : null;
+              setRect(box ? { left: box.left, bottom: box.top } : null);
+            };
+            const onKeyDown = (event) => {
+              if (!state) return;
+              if (event.key === 'Escape') { event.stopPropagation(); setState(null); return; }
+              const needle = String(state.query || '').trim().toLowerCase();
+              const list = notes.filter((note) => (!needle ? true : String(note.text || '').toLowerCase().includes(needle)));
+              if (!list.length) return;
+              if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                event.preventDefault();
+                event.stopPropagation();
+                indexRef.current = Math.max(0, Math.min(indexRef.current + (event.key === 'ArrowDown' ? 1 : -1), list.length - 1));
+                setState({ ...state });
+                return;
+              }
+              if (event.key === 'Enter' || event.key === 'Tab') {
+                event.preventDefault();
+                event.stopPropagation();
+                applyPick(list[Math.min(indexRef.current, list.length - 1)]);
+              }
+            };
+            node.addEventListener('input', onInput);
+            node.addEventListener('keyup', onInput);
+            node.addEventListener('keydown', onKeyDown, true);
+            timer = { remove: () => {
+              node.removeEventListener('input', onInput);
+              node.removeEventListener('keyup', onInput);
+              node.removeEventListener('keydown', onKeyDown, true);
+            } };
           };
-          input.addEventListener('input', onChange);
-          input.addEventListener('keydown', onKeyDown, true);
+          attach();
           return () => {
-            input.removeEventListener('input', onChange);
-            input.removeEventListener('keydown', onKeyDown, true);
+            if (timer && timer.remove) timer.remove();
+            else if (timer) clearTimeout(timer);
           };
-        }, [state, notes, loadNotes]);
+        }, [state, notes]);
+
+        useEffect(() => {
+          if (!ready) return;
+          apiCall('list')
+            .then((result) => setNotes((result && Array.isArray(result.notes) ? result.notes : []).filter((note) => note.archived !== true)))
+            .catch(() => setNotes([]));
+        }, [ready]);
 
         if (!state) return null;
         const needle = String(state.query || '').trim().toLowerCase();
         const list = notes.filter((note) => (!needle ? true : String(note.text || '').toLowerCase().includes(needle))).slice(0, 8);
-        const rect = inputRef.current && inputRef.current.getBoundingClientRect ? inputRef.current.getBoundingClientRect() : null;
         return h('div', {
           className: 'dsm-mention',
-          style: rect ? { left: `${Math.round(rect.left)}px`, bottom: `${Math.round(window.innerHeight - rect.top + 8)}px` } : undefined,
+          style: rect ? { left: `${Math.round(rect.left)}px`, bottom: `${Math.round(window.innerHeight - rect.bottom + 8)}px` } : undefined,
         },
           list.length
             ? list.map((note, index) => h('button', {
@@ -2089,7 +2131,7 @@ window.__ModuleLoader__.load({
               className: 'dsm-mentionItem',
               'data-active': index === indexRef.current ? 'true' : undefined,
               onMouseDown: (event) => event.preventDefault(),
-              onClick: () => pick(inputRef.current, note),
+              onClick: () => applyPick(note),
             }, noteTitleOf(note) || note.id.slice(0, 8)))
             : h('div', { className: 'dsm-mentionEmpty' }, t('mention.empty')));
       };
