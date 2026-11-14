@@ -8,6 +8,10 @@ TMP=$(mktemp -d)
 cp -r index.js client.js sync.js cordis.patch.yml icon.svg icons locale LICENSE README.md "$TMP"/ 2>/dev/null
 cd "$TMP"
 node -e "const f=require('fs');const p=JSON.parse(f.readFileSync('$SRC/package.json','utf8'));p.name='ez-dsh-memo';p.version='$VERSION';delete p.private;f.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')"
+# 发布包必须自带正确包名：patch 的 row name / client.js 的注册 id 都要改
+sed -i 's#@local/dsh-memo#ez-dsh-memo#g' cordis.patch.yml client.js index.js 2>/dev/null
+grep -rl '@local/dsh-memo' . 2>/dev/null | grep -v node_modules | while read -r f; do sed -i 's#@local/dsh-memo#ez-dsh-memo#g' "$f"; done
+if grep -q '@local/dsh-memo' cordis.patch.yml client.js; then echo "❌ 包名替换失败"; exit 1; fi
 npm pack >/dev/null
 TGZ="ez-dsh-memo-$VERSION.tgz"
 cp "$TGZ" "ez-dsh-memo.tgz"

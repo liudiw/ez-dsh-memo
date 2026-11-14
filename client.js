@@ -114,7 +114,7 @@ window.__ModuleLoader__.load({
       'quick.title': '快速便签',
       'quick.hint': 'Enter 保存 · Shift+Enter 换行 · Alt+N 唤起',
       'quick.placeholder': '想到什么，随手记一句…',
-      'quick.save': '存下',
+      'quick.save': '保存（Alt+S）',
       'quick.saved': '已存到便签墙',
       'quick.recent': '最近的便签',
       'quick.remindHint': '可选：设个提醒',
@@ -140,7 +140,7 @@ window.__ModuleLoader__.load({
       'set.errApi': '服务地址要以 http:// 或 https:// 开头',
       'set.errVault': 'Vault 名称不能为空',
       'set.tip': '便签始终保存在本机 ~/.dsh/dsh-memo/notes.json，同步只是把它镜像成 Markdown。',
-      'quick.reset': '重置（清空全部）',
+      'quick.reset': '重置（清空全部，Alt+R）',
       'quick.keepDraft': '内容还没存成便签，要留着当草稿吗？',
       'quick.saveDraft': '存草稿',
       'quick.discard': '不存，清空',
@@ -279,7 +279,7 @@ window.__ModuleLoader__.load({
       'quick.title': 'Quick note',
       'quick.hint': 'Enter saves · Shift+Enter newline · Alt+N opens',
       'quick.placeholder': 'Jot down a spark…',
-      'quick.save': 'Save',
+      'quick.save': 'Save (Alt+S)',
       'quick.saved': 'Saved',
       'quick.recent': 'Recent notes',
       'quick.remindHint': 'Optional reminder',
@@ -305,7 +305,7 @@ window.__ModuleLoader__.load({
       'set.errApi': 'URL must start with http:// or https://',
       'set.errVault': 'Vault name is required',
       'set.tip': 'Notes always live on this machine at ~/.dsh/dsh-memo/notes.json; sync only mirrors them as Markdown.',
-      'quick.reset': 'Reset (clear all)',
+      'quick.reset': 'Reset (clear all, Alt+R)',
       'quick.keepDraft': 'Not saved as a note yet. Keep it as a draft?',
       'quick.saveDraft': 'Keep draft',
       'quick.discard': 'Discard',
@@ -2383,6 +2383,21 @@ window.__ModuleLoader__.load({
               restoreFocus(prevFocus.current);
               return;
             }
+            if (key === 's') {
+              if (!open) return;
+              event.preventDefault();
+              event.stopPropagation();
+              const button = typeof document !== 'undefined' ? document.querySelector('.dsm-quickSave') : null;
+              if (button && typeof button.click === 'function') button.click();
+              return;
+            }
+            if (key === 'r') {
+              if (!open) return;
+              event.preventDefault();
+              event.stopPropagation();
+              resetAll();
+              return;
+            }
             if (key !== 'n') return;
             event.preventDefault();
             onOpen();
@@ -2426,8 +2441,8 @@ window.__ModuleLoader__.load({
             try { if (typeof localStorage !== 'undefined') localStorage.removeItem('dsh-memo:draft'); } catch (error) { /* 忽略 */ }
             setRemindAt('');
             setCategoryIds([]);
-            setFlash(t('quick.saved'));
             loadRecent();
+            hide();
           } catch (error) {
             setFlash(String((error && error.message) || error));
           } finally {
@@ -2716,7 +2731,7 @@ window.__ModuleLoader__.load({
               flash ? h('span', { className: 'dsm-quickFlash' }, flash) : null,
               h('button', {
                 type: 'button',
-                className: 'dsm-btn dsm-btnPrimary',
+                className: 'dsm-btn dsm-btnPrimary dsm-quickSave',
                 disabled: busy || !draft.trim(),
                 onClick: save,
               }, t('quick.save'))),
