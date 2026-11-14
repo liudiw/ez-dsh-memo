@@ -2029,7 +2029,35 @@ window.__ModuleLoader__.load({
           return { start: info.text.length - match[0].length, back: match[0].length, query: match[1] || '' };
         };
 
-        /** 用候选替换「@便签:query」。 */
+        /** 在 contenteditable 里选中「结尾 N 个字符」——按文本节点逐个累加，跨节点也准。 */
+        const selectTail = (root, count) => {
+          if (!root || count <= 0) return false;
+          const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+          const items = [];
+          let total = 0;
+          let current = walker.nextNode();
+          while (current) {
+            const length = String(current.nodeValue || '').length;
+            items.push({ node: current, start: total, end: total + length });
+            total += length;
+            current = walker.nextNode();
+          }
+          if (!items.length || total < count) return false;
+          const from = total - count;
+          const startItem = items.find((item) => from >= item.start && from <= item.end);
+          const endItem = items[items.length - 1];
+          if (!startItem || !endItem) return false;
+          const range = document.createRange();
+          range.setStart(startItem.node, Math.max(0, from - startItem.start));
+          range.setEnd(endItem.node, String(endItem.node.nodeValue || '').length);
+          const selection = window.getSelection();
+          if (!selection) return false;
+          selection.removeAllRanges();
+          selection.addRange(range);
+          return true;
+        };
+
+        /** 用候选替换「@note-query」。 */
         const applyPick = (note) => {
           const node = targetRef.current;
           if (!node || !note || !state) return;
@@ -2043,16 +2071,9 @@ window.__ModuleLoader__.load({
             if (node.tagName === 'TEXTAREA') {
               const value = String(node.value || '');
               node.setSelectionRange(Math.max(0, state.start), Math.min(state.start + back, value.length));
-            } else {
-              const selection = window.getSelection();
-              if (selection && typeof selection.modify === 'function') {
-                for (let step = 0; step < back; step += 1) selection.modify('extend', 'backward', 'character');
-              } else if (selection && selection.rangeCount) {
-                const range = selection.getRangeAt(0).cloneRange();
-                range.setStart(range.endContainer, Math.max(0, range.endOffset - back));
-                selection.removeAllRanges();
-                selection.addRange(range);
-              }
+            } else if (!selectTail(node, back)) {
+              console.warn('[dsh-memo] 无法定位 @note 文本段，放弃替换');
+              return;
             }
             if (typeof document.execCommand === 'function') document.execCommand('insertText', false, replacement);
           } catch (error) {
