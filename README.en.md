@@ -43,6 +43,35 @@ Notes always live locally, sync is only a mirror:
 └── pwa.json       optional: enables PWA manifest injection
 ```
 
+
+## AI can read and write your notes
+
+The plugin ships a host tool named `memo`, so the model can operate the same wall you see:
+
+| action | what it does |
+| --- | --- |
+| `list` | read every note (id, text, color, pinned, categories, reminder) |
+| `add` | create a note — pass `text`, optional `color` / `pinned` / `categories` / `remindAt` / `repeat` |
+| `update` | edit text/color/pin/categories/reminder/done by `id` |
+| `remove` | delete (goes to the 7-day trash) |
+| `sync` | force one fast-note-sync pass |
+
+Examples: *“把墙上关于项目 A 的便签归类到「工作」”*, *“列一下我逾期没做的待办”*, *“给这条便签加一个明天 9 点的提醒”* — the agent edits the real wall, not a copy.
+
+## How it compares
+
+| | ez-dsh-memo | dsh-sticky-note (47★) | dsh-sticky-notes (7★) |
+| --- | --- | --- | --- |
+| Form factor | **standalone wall** (panel) | floating panel near composer | draggable sticky papers |
+| Layout | absolute dense packing, resize + reorder | list / stack | free drag |
+| Categories | many-to-many, drag to reorder | fixed 3 buckets | — |
+| Reminders | **time + repeat + webhook + daily digest** | — | — |
+| Wiki links `[[…]]` | **yes, opens target in a new window** | — | — |
+| Markdown sync | **fast-note-sync (vault + attachments)** | archive folder | — |
+| Trash / archive / undo | **yes** | archive + auto-clear | — |
+| Skins | 5 accent colors | — | 9 skins |
+| AI read/write | **`memo` tool (list/add/update/remove)** | send to chat | read & write |
+
 ## Shortcuts
 
 | Keys | Action |
