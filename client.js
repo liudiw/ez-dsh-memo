@@ -1931,6 +1931,69 @@ window.__ModuleLoader__.load({
       return best;
     }
 
+    /** 把渲染后的 DOM 还原成 Markdown（保留标题/列表/代码/表格/引用/强调/链接）。 */
+    function domToMarkdown(node) {
+      if (!node) return '';
+      const walk = (current) => {
+        if (!current) return '';
+        if (current.nodeType === 3) return String(current.nodeValue || '');
+        if (current.nodeType !== 1) return '';
+        const tag = String(current.tagName || '').toLowerCase();
+        const inner = () => Array.from(current.childNodes || []).map(walk).join('');
+        if (tag === 'br') return '\n';
+        if (tag === 'script' || tag === 'style' || tag === 'button' || tag === 'svg') return '';
+        if (/^h[1-6]$/.test(tag)) return `${'#'.repeat(Number(tag[1]))} ${inner().trim()}\n\n`;
+        if (tag === 'p') return `${inner().trim()}\n\n`;
+        if (tag === 'li') return `- ${inner().trim()}\n`;
+        if (tag === 'ul' || tag === 'ol') return `${inner()}\n`;
+        if (tag === 'pre') {
+          const code = current.querySelector ? current.querySelector('code') : null;
+          const body = String((code || current).textContent || '').replace(/\n+$/, '');
+          const language = code && code.className ? (String(code.className).match(/language-([\w-]+)/) || [, ''])[1] : '';
+          return `\`\`\`${language}\n${body}\n\`\`\`\n\n`;
+        }
+        if (tag === 'code') return `\`${String(current.textContent || '')}\``;
+        if (tag === 'strong' || tag === 'b') return `**${inner().trim()}**`;
+        if (tag === 'em' || tag === 'i') return `*${inner().trim()}*`;
+        if (tag === 'a') {
+          const label = inner().trim();
+          const href = current.getAttribute ? current.getAttribute('href') : '';
+          return href ? `[${label}](${href})` : label;
+        }
+        if (tag === 'blockquote') {
+          const body = inner().trim().split('\n').map((line) => `> ${line}`).join('\n');
+          return `${body}\n\n`;
+        }
+        if (tag === 'tr') {
+          const cells = Array.from(current.children || []).map((cell) => String(cell.textContent || '').trim());
+          return `| ${cells.join(' | ')} |\n`;
+        }
+        if (tag === 'thead' || tag === 'tbody' || tag === 'table') return inner();
+        if (tag === 'hr') return '---\n\n';
+        return inner();
+      };
+      return walk(node)
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+    }
+
+    /** 找按钮之前最近的一次用户提问（[data-turn-trigger] 按文档顺序）。 */
+    function triggerTextNear(start) {
+      try {
+        if (typeof document === 'undefined' || !document.querySelectorAll || !start) return '';
+        const list = Array.from(document.querySelectorAll('[data-turn-trigger]'));
+        let best = null;
+        for (const item of list) {
+          if (item === start) continue;
+          const relation = item.compareDocumentPosition(start);
+          if (relation & 4) best = item; // DOCUMENT_POSITION_FOLLOWING：item 在 start 之前
+        }
+        return best ? String(best.textContent || '').trim() : '';
+      } catch (error) {
+        return '';
+      }
+    }
+
     /** 找本轮的根节点：最近的、包含 [data-turn-process-answer] 的祖先。 */
     function turnRootOf(start) {
       let node = start;
@@ -1947,20 +2010,18 @@ window.__ModuleLoader__.load({
       const nodes = root.querySelectorAll('[data-turn-process-answer]');
       if (!nodes || !nodes.length) return '';
       const last = nodes[nodes.length - 1];
-      return String(last.innerText || '').trim();
+      return domToMarkdown(last);
     }
 
     /** 本轮的提问（[data-turn-trigger]，可能在本轮根节点外的前一个兄弟）。 */
     function triggerTextOf(root) {
       if (!root) return '';
       const inside = root.querySelector ? root.querySelector('[data-turn-trigger]') : null;
-      if (inside && String(inside.innerText || '').trim()) return String(inside.innerText || '').trim();
-      const prev = root.previousElementSibling;
-      if (prev && prev.querySelector) {
-        const found = prev.querySelector('[data-turn-trigger]');
-        if (found && String(found.innerText || '').trim()) return String(found.innerText || '').trim();
+      if (inside) {
+        const markdown = domToMarkdown(inside);
+        if (markdown) return markdown;
       }
-      return '';
+      return triggerTextNear(root);
     }
 
     /** 从某个 DOM 节点向上找一段够长的文本（跳过过短的壳节点）。 */
@@ -1996,7 +2057,7 @@ window.__ModuleLoader__.load({
               .filter((line) => line && line !== t('capture.button') && line !== t('capture.collect'))
               .join('\n')
               .trim();
-            const asked = clean(triggerTextOf(root));
+            const asked = clean(triggerTextOf(root) || triggerTextNear(start));
             const answered = clean(root ? answerTextOf(root) : '');
             const parts = [];
             if (asked) parts.push(`> ${asked.split('\n').join('\n> ')}`);
