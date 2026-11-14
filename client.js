@@ -1964,11 +1964,20 @@ window.__ModuleLoader__.load({
           const body = inner().trim().split('\n').map((line) => `> ${line}`).join('\n');
           return `${body}\n\n`;
         }
-        if (tag === 'tr') {
-          const cells = Array.from(current.children || []).map((cell) => String(cell.textContent || '').trim());
-          return `| ${cells.join(' | ')} |\n`;
+        if (tag === 'table') {
+          const rows = Array.from(current.querySelectorAll ? current.querySelectorAll('tr') : []);
+          if (!rows.length) return inner();
+          const cellText = (cell) => walk(cell).replace(/\n+/g, ' ').trim() || ' ';
+          const lines = rows.map((row, index) => {
+            const cells = Array.from(row.children || []);
+            const values = cells.map(cellText);
+            const header = index === 0 && cells.some((cell) => String(cell.tagName || '').toLowerCase() === 'th');
+            const line = `| ${values.join(' | ')} |`;
+            return header ? `${line}\n|${values.map(() => ' --- ').join('|')}|` : line;
+          });
+          return `${lines.join('\n')}\n\n`;
         }
-        if (tag === 'thead' || tag === 'tbody' || tag === 'table') return inner();
+        if (tag === 'thead' || tag === 'tbody') return inner();
         if (tag === 'hr') return '---\n\n';
         return inner();
       };
