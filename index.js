@@ -1428,7 +1428,9 @@ function buildMemoTool(context) {
       + 'remove 删除（需要 id）；sync 立刻与 fast-note-sync 双向同步一次。'
       + '用户说「记一下/帮我记个想法/我有个灵感」时用 add 把原话简洁记下来。'
       + '分类用 categories 传名字（不存在会自动创建，一张便签可以属于多个分类）。'
-      + '便签在墙面上的大小（拖拽右下角调整）是纯界面状态，由用户自己掌握，本工具不涉及。',
+      + '便签在墙面上的大小（拖拽右下角调整）是纯界面状态，由用户自己掌握，本工具不涉及。'
+      + '另外：用户消息里出现「@便签:标题」时，先用 action get（按 title 或 id）取出那张便签的完整正文再回答，'
+      + '不要把「@便签:标题」当成普通文本绕过。',
     parameters: {
       type: 'object',
       additionalProperties: false,
@@ -1436,7 +1438,7 @@ function buildMemoTool(context) {
       properties: {
         action: {
           type: 'string',
-          enum: ['list', 'add', 'update', 'remove', 'sync'],
+          enum: ['list', 'add', 'update', 'remove', 'sync', 'get'],
           description: '要执行的操作。',
         },
         text: {
@@ -1653,6 +1655,19 @@ async function dispatch(context, method, args) {
   switch (method) {
     case 'list':
       return store.list()
+    case 'get': {
+      const wanted = String(args?.id || args?.title || '').trim()
+      if (!wanted) throw new Error('get 需要 id 或 title')
+      const all = store.list()
+      const notes = Array.isArray(all?.notes) ? all.notes : (Array.isArray(all) ? all : [])
+      const byId = notes.find((note) => note.id === wanted)
+      const lower = wanted.toLowerCase()
+      const hit = byId
+        || notes.find((note) => String(note.text || '').trim().toLowerCase() === lower)
+        || notes.find((note) => String(note.text || '').toLowerCase().includes(lower))
+      if (!hit) throw new Error(`没有找到便签：${wanted}`)
+      return { note: hit }
+    }
     case 'add': {
       const result = await store.add(args)
       sync.scheduleSoon()

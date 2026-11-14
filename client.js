@@ -87,6 +87,8 @@ window.__ModuleLoader__.load({
       'note.drag': '拖动排序',
       'note.categories': '分类',
       'image.add': '插入图片（也可以直接粘贴）',
+      'note.quote': '引用到对话（@便签:标题）',
+      'note.quote': 'Quote in chat (@note:title)',
       'image.export': '导出为图片',
       'image.export': 'Export as image',
       'image.uploading': '正在上传图片…',
@@ -1966,6 +1968,52 @@ window.__ModuleLoader__.load({
       return out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
     }
 
+    /** 往会话输入框插入一段文本：优先 execCommand，失败则复制到剪贴板。 */
+    function insertIntoComposer(text) {
+      const findComposer = () => {
+        if (typeof document === 'undefined') return null;
+        const nodes = Array.from(document.querySelectorAll('textarea, [contenteditable="true"]'));
+        const usable = nodes.filter((node) => {
+          if (!node || typeof node.focus !== 'function') return false;
+          if (node.className && String(node.className).includes('dsm-')) return false;
+          const rect = node.getBoundingClientRect ? node.getBoundingClientRect() : null;
+          return Boolean(rect && rect.width > 80 && rect.height > 12);
+        });
+        return usable.length ? usable[usable.length - 1] : null;
+      };
+      const node = findComposer();
+      if (!node) return false;
+      try {
+        node.focus({ preventScroll: true });
+        if ('value' in node) {
+          const end = String(node.value || '').length;
+          node.setSelectionRange(end, end);
+        } else if (typeof document.execCommand === 'function') {
+          const selection = window.getSelection();
+          if (selection) {
+            const range = document.createRange();
+            range.selectNodeContents(node);
+            range.collapse(false);
+            selection.removeAllRanges();
+            selection.addRange(range);
+          }
+        }
+        const ok = typeof document.execCommand === 'function' && document.execCommand('insertText', false, text);
+        if (ok !== false) return true;
+      } catch (error) {
+        /* 继续走剪贴板兜底 */
+      }
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text);
+          return 'copied';
+        }
+      } catch (error) {
+        /* 忽略 */
+      }
+      return false;
+    }
+
     /** 把渲染后的 DOM 还原成 Markdown（保留标题/列表/代码/表格/引用/强调/链接）。 */
     function domToMarkdown(node) {
       if (!node) return '';
@@ -3643,6 +3691,16 @@ window.__ModuleLoader__.load({
                   names.length ? names.join(' · ') : '',
                   remind ? (remind.kind === 'done' ? t('remind.doneBadge') : formatRemind(note.remindAt, language, note.repeat, Date.now(), t)) : '',
                 ].filter(Boolean).join('　·　')),
+              h('button', {
+                type: 'button',
+                className: 'dsm-iconBtn',
+                title: t('note.quote'),
+                'aria-label': t('note.quote'),
+                onClick: () => {
+                  const title = noteTitleOf(note) || note.id.slice(0, 8);
+                  insertIntoComposer(`@便签:${title} `);
+                },
+              }, h(Icon, { name: 'list', size: 14 })),
               h('button', {
                 type: 'button',
                 className: 'dsm-iconBtn',
