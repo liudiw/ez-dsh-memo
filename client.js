@@ -1981,6 +1981,7 @@ window.__ModuleLoader__.load({
         const [notes, setNotes] = useState([]);
         const [rect, setRect] = useState(null);
         const [ready, setReady] = useState(false);
+        const [tick, setTick] = useState(0);
         const indexRef = useRef(0);
         const targetRef = useRef(null);
 
@@ -2075,32 +2076,11 @@ window.__ModuleLoader__.load({
               const box = node.getBoundingClientRect ? node.getBoundingClientRect() : null;
               setRect(box ? { left: box.left, bottom: box.top } : null);
             };
-            const onKeyDown = (event) => {
-              if (!state) return;
-              if (event.key === 'Escape') { event.stopPropagation(); setState(null); return; }
-              const needle = String(state.query || '').trim().toLowerCase();
-              const list = notes.filter((note) => (!needle ? true : String(note.text || '').toLowerCase().includes(needle)));
-              if (!list.length) return;
-              if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-                event.preventDefault();
-                event.stopPropagation();
-                indexRef.current = Math.max(0, Math.min(indexRef.current + (event.key === 'ArrowDown' ? 1 : -1), list.length - 1));
-                setState({ ...state });
-                return;
-              }
-              if (event.key === 'Enter' || event.key === 'Tab') {
-                event.preventDefault();
-                event.stopPropagation();
-                applyPick(list[Math.min(indexRef.current, list.length - 1)]);
-              }
-            };
             node.addEventListener('input', onInput);
             node.addEventListener('keyup', onInput);
-            node.addEventListener('keydown', onKeyDown, true);
             timer = { remove: () => {
               node.removeEventListener('input', onInput);
               node.removeEventListener('keyup', onInput);
-              node.removeEventListener('keydown', onKeyDown, true);
             } };
           };
           attach();
@@ -2108,6 +2088,37 @@ window.__ModuleLoader__.load({
             if (timer && timer.remove) timer.remove();
             else if (timer) clearTimeout(timer);
           };
+        }, [state, notes]);
+
+        // 键盘：window 捕获阶段，避免被 composer 吞掉
+        useEffect(() => {
+          if (!state) return undefined;
+          const onKey = (event) => {
+            const needle = String(state.query || '').trim().toLowerCase();
+            const list = notes.filter((note) => (!needle ? true : String(note.text || '').toLowerCase().includes(needle)));
+            if (!list.length) return;
+            if (event.key === 'Escape') {
+              event.preventDefault();
+              event.stopPropagation();
+              setState(null);
+              return;
+            }
+            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+              event.preventDefault();
+              event.stopPropagation();
+              const step = event.key === 'ArrowDown' ? 1 : -1;
+              indexRef.current = Math.max(0, Math.min(indexRef.current + step, list.length - 1));
+              setTick((current) => current + 1);
+              return;
+            }
+            if (event.key === 'Enter' || event.key === 'Tab') {
+              event.preventDefault();
+              event.stopPropagation();
+              applyPick(list[Math.min(indexRef.current, list.length - 1)]);
+            }
+          };
+          window.addEventListener('keydown', onKey, true);
+          return () => window.removeEventListener('keydown', onKey, true);
         }, [state, notes]);
 
         useEffect(() => {
@@ -2130,6 +2141,7 @@ window.__ModuleLoader__.load({
               type: 'button',
               className: 'dsm-mentionItem',
               'data-active': index === indexRef.current ? 'true' : undefined,
+              'data-tick': tick,
               onMouseDown: (event) => event.preventDefault(),
               onClick: () => applyPick(note),
             }, noteTitleOf(note) || note.id.slice(0, 8)))
