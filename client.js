@@ -140,6 +140,10 @@ window.__ModuleLoader__.load({
       'set.errApi': '服务地址要以 http:// 或 https:// 开头',
       'set.errVault': 'Vault 名称不能为空',
       'set.tip': '便签始终保存在本机 ~/.dsh/dsh-memo/notes.json，同步只是把它镜像成 Markdown。',
+      'capture.button': '收进便签',
+      'capture.collect': '收集本轮',
+      'capture.button': 'Save to notes',
+      'capture.collect': 'Collect turn',
       'quick.reset': '重置（清空全部，Alt+R）',
       'quick.keepDraft': '内容还没存成便签，要留着当草稿吗？',
       'quick.saveDraft': '存草稿',
@@ -368,6 +372,8 @@ window.__ModuleLoader__.load({
 .dsm-root[data-skin='paper']{--dsm-skin-bg:linear-gradient(180deg,#fbf7ef,#f4eee2)}
 .dsm-root[data-skin='night']{--dsm-skin-bg:linear-gradient(180deg,#1b1d22,#14161a)}
 .dsm-root[data-skin='warm']{--dsm-skin-bg:linear-gradient(180deg,#fff8f1,#ffefe3)}
+.dsm-captureBtn{opacity:.75}
+.dsm-captureBtn:hover{opacity:1}
 .dsm-skinBar{display:flex;gap:5px;padding:0 0 8px}
 .dsm-skinDot{width:14px;height:14px;padding:0;border-radius:50%;border:1px solid var(--dsw-alias-border-l1);cursor:pointer}
 .dsm-skinDot[data-on='true']{box-shadow:0 0 0 2px var(--dsw-alias-brand-primary)}
@@ -1892,6 +1898,50 @@ window.__ModuleLoader__.load({
       }
     }
 
+    /** 会话消息尾部/操作条的「收进便签」按钮：从 DOM 取该条消息的渲染文本。 */
+    function makeCaptureButton(t) {
+      return function MemoCaptureButton(props) {
+        const collect = (event) => {
+          try {
+            let node = event && event.currentTarget ? event.currentTarget : null;
+            let text = '';
+            for (let depth = 0; depth < 10 && node; depth += 1) {
+              const candidate = node.closest ? node.closest('[data-message-id]') : null;
+              const holder = candidate || node;
+              const raw = String(holder.innerText || '');
+              if (raw.trim().length > 12) {
+                text = raw;
+                break;
+              }
+              node = node.parentElement;
+            }
+            const cleaned = text
+              .split('\n')
+              .map((line) => line.trim())
+              .filter((line) => line && line !== t('capture.button') && line !== t('capture.collect'))
+              .join('\n')
+              .trim();
+            if (!cleaned) return;
+            try {
+              window.dispatchEvent(new CustomEvent('dsh-memo:capture', { detail: { text: cleaned } }));
+            } catch (error) {
+              /* 忽略 */
+            }
+          } catch (error) {
+            console.error('dsh-memo: 收集消息失败', error);
+          }
+        };
+        return h('button', {
+          type: 'button',
+          className: 'dsm-iconBtn dsm-captureBtn',
+          title: t('capture.button'),
+          'aria-label': t('capture.button'),
+          'data-message-id': props && props.messageId ? props.messageId : undefined,
+          onClick: collect,
+        }, h(Icon, { name: 'pin', size: 13 }));
+      };
+    }
+
     /** 把一张便签画成 PNG 并下载（纸感底色 + 自动换行，无需额外依赖）。 */
     function exportNoteImage(note, t) {
       try {
@@ -2354,7 +2404,17 @@ window.__ModuleLoader__.load({
 
         // 会话页的按钮 / 快捷键都通过 window 事件唤起
         useEffect(() => {
-          const onOpen = () => {
+          const onOpen = (event) => {
+            const incoming = event && event.detail && typeof event.detail.text === 'string' ? event.detail.text : '';
+            if (incoming) {
+              // 从聊天收集：带文本打开，不参与 toggle 去重
+              if (typeof document !== 'undefined') prevFocus.current = document.activeElement;
+              setDraft(incoming);
+              setConfirmClose(false);
+              setOpen(true);
+              loadRecent();
+              return;
+            }
             if (!captureGuardPass()) return;
             setOpen((current) => {
               if (current) {
@@ -5607,6 +5667,18 @@ window.__ModuleLoader__.load({
           locale: NS,
           label: () => t('panel.title'),
         }, (props) => h(MemoRailIcon, { size: props.size, active: props.active })));
+
+        // 每条助手消息的操作条：收进便签
+        try {
+          const MemoCaptureButton = makeCaptureButton(t);
+          ctx.slots.inject('conversation.chat.assistant-actions', () => ctx.slots.register({
+            name: 'conversation.chat.assistant-actions',
+            id: 'memo-capture',
+            order: 40,
+          }, MemoCaptureButton));
+        } catch (error) {
+          console.error('dsh-memo: 消息收集按钮注册失败', error);
+        }
 
         // 设置 → 便签墙（fast-note-sync 配置）
         try {
