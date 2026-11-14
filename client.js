@@ -89,8 +89,8 @@ window.__ModuleLoader__.load({
       'image.add': '插入图片（也可以直接粘贴）',
       'mention.empty': '没有匹配的便签',
       'mention.empty': 'No matching notes',
-      'note.quote': '引用到对话（@便签:标题）',
-      'note.quote': 'Quote in chat (@note:title)',
+      'note.quote': '引用到对话（[[便签:标题]]）',
+      'note.quote': 'Quote in chat ([[便签:标题]])',
       'image.export': '导出为图片',
       'image.export': 'Export as image',
       'image.uploading': '正在上传图片…',
@@ -2010,7 +2010,7 @@ window.__ModuleLoader__.load({
       }
     }
 
-    /** 会话输入框里的 @便签: 候选面板：兼容 contenteditable 的 composer。 */
+    /** 会话输入框里的 @note 候选面板：插入 [[便签:标题]]。 */
     function makeNoteMention(t) {
       return function MemoNoteMention() {
         const [state, setState] = useState(null);
@@ -2110,7 +2110,7 @@ window.__ModuleLoader__.load({
           const node = targetRef.current;
           if (!node || !note || !state) return;
           const title = noteTitleOf(note) || note.id.slice(0, 8);
-          const replacement = `@便签:${title} `;
+          const replacement = `[[便签:${title}]] `;
           try {
             node.focus({ preventScroll: true });
             const back = Number.isFinite(state.back) && state.back > 0
@@ -2130,11 +2130,11 @@ window.__ModuleLoader__.load({
             const written = content.indexOf(title) >= 0;
             if (!accepted || !written) {
               const clipboardOk = copyPlain(replacement);
-              flashHint(clipboardOk ? '已复制便签引用，按 Ctrl+V 粘贴' : '插入失败，请手动输入 @便签:标题');
+              flashHint(clipboardOk ? '已复制便签引用，按 Ctrl+V 粘贴' : '插入失败，请手动输入 [[便签:标题]]');
             }
           } catch (error) {
             const clipboardOk = copyPlain(replacement);
-            flashHint(clipboardOk ? '已复制便签引用，按 Ctrl+V 粘贴' : '插入失败，请手动输入 @便签:标题');
+            flashHint(clipboardOk ? '已复制便签引用，按 Ctrl+V 粘贴' : '插入失败，请手动输入 [[便签:标题]]');
           }
           setState(null);
         };
@@ -3973,7 +3973,7 @@ window.__ModuleLoader__.load({
                 'aria-label': t('note.quote'),
                 onClick: () => {
                   const title = noteTitleOf(note) || note.id.slice(0, 8);
-                  insertIntoComposer(`@便签:${title} `);
+                  insertIntoComposer(`[[便签:${title}]] `);
                 },
               }, h(Icon, { name: 'list', size: 14 })),
               h('button', {
