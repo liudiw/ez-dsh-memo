@@ -89,8 +89,8 @@ window.__ModuleLoader__.load({
       'image.add': '插入图片（也可以直接粘贴）',
       'mention.empty': '没有匹配的便签',
       'mention.empty': 'No matching notes',
-      'note.quote': '引用到对话（[[便签:标题]]）',
-      'note.quote': 'Quote in chat ([[便签:标题]])',
+      'note.quote': '引用到对话（@便签:标题）',
+      'note.quote': 'Quote in chat (@note:title)',
       'image.export': '导出为图片',
       'image.export': 'Export as image',
       'image.uploading': '正在上传图片…',
@@ -379,8 +379,8 @@ window.__ModuleLoader__.load({
 .dsm-collectBtnUnused{font:inherit;font-size:11.5px;padding:2px 8px;border-radius:999px;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-secondary);cursor:pointer;opacity:.8}
 .dsm-collectBtn:hover{opacity:1;color:var(--dsw-alias-brand-primary)}
 .dsm-captureGroup{display:inline-flex;align-items:center;gap:2px}
-.dsm-mention{pointer-events:auto;position:fixed;z-index:2147482300;width:min(340px,70vw);max-height:240px;overflow-y:auto;padding:5px;border-radius:10px;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base);box-shadow:0 18px 40px -18px rgba(0,0,0,.45)}
-.dsm-mentionItem{pointer-events:auto;display:block;width:100%;text-align:left;font:inherit;font-size:12.5px;padding:5px 8px;border:none;border-radius:6px;background:transparent;color:var(--dsw-alias-label-primary);cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dsm-mention{position:fixed;z-index:2147482300;width:min(340px,70vw);max-height:240px;overflow-y:auto;padding:5px;border-radius:10px;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base);box-shadow:0 18px 40px -18px rgba(0,0,0,.45)}
+.dsm-mentionItem{display:block;width:100%;text-align:left;font:inherit;font-size:12.5px;padding:5px 8px;border:none;border-radius:6px;background:transparent;color:var(--dsw-alias-label-primary);cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dsm-mentionItem[data-active='true']{background:color-mix(in srgb,var(--dsw-alias-brand-primary) 14%,transparent)}
 .dsm-mentionEmpty{padding:6px 8px;font-size:11.5px;color:var(--dsw-alias-label-secondary)}
 .dsm-captureBtn{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;padding:0;border:none;border-radius:7px;background:transparent;color:var(--dsw-alias-label-secondary);cursor:pointer;opacity:.85}
@@ -1974,43 +1974,7 @@ window.__ModuleLoader__.load({
       return out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
     }
 
-    /** 可靠复制（隐藏 textarea + execCommand('copy')，不需要剪贴板权限）。 */
-    function copyPlain(text) {
-      try {
-        const area = document.createElement('textarea');
-        area.value = text;
-        area.setAttribute('readonly', 'readonly');
-        area.style.position = 'fixed';
-        area.style.opacity = '0';
-        area.style.left = '-9999px';
-        document.body.appendChild(area);
-        area.select();
-        const ok = document.execCommand('copy');
-        area.remove();
-        return ok;
-      } catch (error) {
-        return false;
-      }
-    }
-
-    /** 轻量浮层提示（不依赖 React，2 秒后自动移除）。 */
-    function flashHint(text) {
-      try {
-        if (typeof document === 'undefined' || !document.body) return;
-        const node = document.createElement('div');
-        node.textContent = text;
-        node.setAttribute('style', 'position:fixed;left:50%;bottom:96px;transform:translateX(-50%);'
-          + 'z-index:2147483600;padding:8px 14px;border-radius:999px;font-size:12.5px;'
-          + 'background:var(--dsw-alias-bg-base,#fff);color:var(--dsw-alias-label-primary,#222);'
-          + 'border:1px solid var(--dsw-alias-border-l1,#ddd);box-shadow:0 12px 30px -12px rgba(0,0,0,.45)');
-        document.body.appendChild(node);
-        setTimeout(() => node.remove(), 2200);
-      } catch (error) {
-        /* 忽略 */
-      }
-    }
-
-    /** 会话输入框里的 @note 候选面板：插入 [[便签:标题]]。 */
+    /** 会话输入框里的 @便签: 候选面板：兼容 contenteditable 的 composer。 */
     function makeNoteMention(t) {
       return function MemoNoteMention() {
         const [state, setState] = useState(null);
@@ -2060,81 +2024,35 @@ window.__ModuleLoader__.load({
 
         const matchAt = (info) => {
           if (!info) return null;
-          const match = /@(?:note|便签)(?:-([^\s@]{0,40}))?$/i.exec(info.text);
+          const match = /@(便签|note):([^\s@]{0,40})$/.exec(info.text);
           if (!match) return null;
-          return { start: info.text.length - match[0].length, back: match[0].length, query: match[1] || '' };
+          return { start: info.text.length - match[0].length, query: match[2] };
         };
 
-        /** 选中「光标前 N 个字符」：优先同文本节点内反向扩展（最稳），跨节点再回退 TreeWalker。 */
-        const selectTail = (root, count) => {
-          if (!root || count <= 0) return false;
-          const selection = window.getSelection();
-          if (!selection || !selection.rangeCount) return false;
-          const base = selection.getRangeAt(0);
-          const endNode = base.endContainer;
-          // 快路径：触发词通常和光标在同一个文本节点里，直接改 setStart 不会错
-          if (endNode && endNode.nodeType === 3 && endNode.nodeValue && base.endOffset - count >= 0) {
-            const next = document.createRange();
-            next.setStart(endNode, base.endOffset - count);
-            next.setEnd(endNode, base.endOffset);
-            selection.removeAllRanges();
-            selection.addRange(next);
-            return String(next.toString()).length === count;
-          }
-          // 慢路径：跨节点时按文本节点累加定位
-          const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
-          const items = [];
-          let total = 0;
-          let current = walker.nextNode();
-          while (current) {
-            const length = String(current.nodeValue || '').length;
-            if (length > 0) items.push({ node: current, start: total, end: total + length });
-            total += length;
-            current = walker.nextNode();
-          }
-          if (!items.length || total < count) return false;
-          const from = total - count;
-          const startItem = items.find((item) => from >= item.start && from < item.end);
-          const endItem = items[items.length - 1];
-          if (!startItem || !endItem) return false;
-          const range = document.createRange();
-          range.setStart(startItem.node, Math.max(0, from - startItem.start));
-          range.setEnd(endItem.node, String(endItem.node.nodeValue || '').length);
-          selection.removeAllRanges();
-          selection.addRange(range);
-          return String(range.toString()).length === count;
-        };
-
-        /** 用候选替换「@note-query」。 */
+        /** 用候选替换「@便签:query」。 */
         const applyPick = (note) => {
           const node = targetRef.current;
           if (!node || !note || !state) return;
           const title = noteTitleOf(note) || note.id.slice(0, 8);
-          const replacement = `[[便签:${title}]] `;
+          const replacement = `@便签:${title} `;
           try {
             node.focus({ preventScroll: true });
-            const back = Number.isFinite(state.back) && state.back > 0
-              ? state.back
-              : 5 + 1 + String(state.query || '').length;
             if (node.tagName === 'TEXTAREA') {
               const value = String(node.value || '');
-              node.setSelectionRange(Math.max(0, state.start), Math.min(state.start + back, value.length));
-            } else if (!selectTail(node, back)) {
-              console.warn('[dsh-memo] 无法定位 @note 文本段，放弃替换');
-              return;
+              const end = state.start + 4 + String(state.query || '').length;
+              node.setSelectionRange(state.start, Math.min(end, value.length));
+            } else {
+              const selection = window.getSelection();
+              if (selection && selection.rangeCount) {
+                const range = selection.getRangeAt(0).cloneRange();
+                range.setStart(range.endContainer, Math.max(0, range.endOffset - (4 + String(state.query || '').length)));
+                selection.removeAllRanges();
+                selection.addRange(range);
+              }
             }
-            const accepted = typeof document.execCommand === 'function'
-              && document.execCommand('insertText', false, replacement);
-            // 校验：编辑器实际内容里有没有真的出现标题（execCommand 常返回 true 却什么都没做）
-            const content = String(node.textContent || node.value || '');
-            const written = content.indexOf(title) >= 0;
-            if (!accepted || !written) {
-              const clipboardOk = copyPlain(replacement);
-              flashHint(clipboardOk ? '已复制便签引用，按 Ctrl+V 粘贴' : '插入失败，请手动输入 [[便签:标题]]');
-            }
+            if (typeof document.execCommand === 'function') document.execCommand('insertText', false, replacement);
           } catch (error) {
-            const clipboardOk = copyPlain(replacement);
-            flashHint(clipboardOk ? '已复制便签引用，按 Ctrl+V 粘贴' : '插入失败，请手动输入 [[便签:标题]]');
+            /* 忽略 */
           }
           setState(null);
         };
@@ -2237,7 +2155,8 @@ window.__ModuleLoader__.load({
               className: 'dsm-mentionItem',
               'data-active': index === indexRef.current ? 'true' : undefined,
               'data-tick': tick,
-              onMouseDown: (event) => { event.preventDefault(); event.stopPropagation(); applyPick(note); },
+              onMouseDown: (event) => event.preventDefault(),
+              onClick: () => applyPick(note),
             }, noteTitleOf(note) || note.id.slice(0, 8)))
             : h('div', { className: 'dsm-mentionEmpty' }, t('mention.empty')));
       };
@@ -3973,7 +3892,7 @@ window.__ModuleLoader__.load({
                 'aria-label': t('note.quote'),
                 onClick: () => {
                   const title = noteTitleOf(note) || note.id.slice(0, 8);
-                  insertIntoComposer(`[[便签:${title}]] `);
+                  insertIntoComposer(`@便签:${title} `);
                 },
               }, h(Icon, { name: 'list', size: 14 })),
               h('button', {
