@@ -1815,6 +1815,7 @@ window.__ModuleLoader__.load({
           view
             ? h(NoteViewer, {
               key: view.id,
+              t,
               note: view,
               x: drag ? drag.x : 48,
               y: drag ? drag.y : 90,
@@ -3550,6 +3551,282 @@ window.__ModuleLoader__.load({
       });
     }
 
+    function NoteViewer(props) {
+      const t = props.t || ((key) => key);
+        const { note, language, categories } = props;
+        const [draft, setDraft] = useState(null);
+        const [wiki, setWiki] = useState(null);
+        const [wikiIndex, setWikiIndex] = useState(0);
+        const inputRef = useRef(null);
+        const editing = draft !== null;
+        const blocks = useMemo(() => parseMarkdownBlocks(note.text), [note.text]);
+        const accent = ACCENTS[note.color] || ACCENTS[DEFAULT_COLOR];
+
+        const wikiItems = useMemo(() => {
+          if (!wiki) return [];
+          const needle = String(wiki.query || '').trim().toLowerCase();
+          return (props.allNotes || [])
+            .filter((item) => item.archived !== true && item.id !== note.id)
+            .filter((item) => (!needle ? true : String(item.text || '').toLowerCase().indexOf(needle) >= 0))
+            .slice(0, 40);
+        }, [wiki, props.allNotes, note.id]);
+
+        const popRef = useRef(null);
+
+        useEffect(() => {
+          if (popRef.current) { popRef.current.remove(); popRef.current = null; }
+          if (!wiki || !editing) return undefined;
+          const node = inputRef.current;
+          if (!node || !node.getBoundingClientRect) return undefined;
+          const rect = node.getBoundingClientRect();
+          const items = (props.allNotes || [])
+            .filter((item) => (!String(wiki.query || '').trim()
+              ? true
+              : String(item.text || '').toLowerCase().indexOf(String(wiki.query).trim().toLowerCase()) >= 0))
+            .slice(0, 40)
+            .map((item) => ({ note: item, label: noteTitleOf(item) || item.id.slice(0, 8) }));
+          if (!items.length) return undefined;
+          popRef.current = showWikiPop(items, rect, (picked) => pickWiki(picked));
+          return () => {
+            if (popRef.current) { popRef.current.remove(); popRef.current = null; }
+          };
+        }, [wiki, editing, props.allNotes]);
+
+        useEffect(() => {
+          if (popRef.current) popRef.current.setActive(wikiIndex);
+        }, [wikiIndex, wiki]);
+
+        const pickWiki = (target) => {
+          if (!wiki) return;
+          const title = noteTitleOf(target) || target.id.slice(0, 8);
+          const next = applyWikiLink(draft || '', wiki.start, title);
+          setDraft(next.text);
+          setWiki(null);
+          setWikiIndex(0);
+          requestAnimationFrame(() => {
+            const node = inputRef.current;
+            if (node) {
+              node.focus();
+              try { node.setSelectionRange(next.caret, next.caret); } catch (error) { /* 忽略 */ }
+            }
+          });
+        };
+
+        const startEdit = () => {
+          setDraft(note.text);
+          setWiki(null);
+          requestAnimationFrame(() => {
+            const node = inputRef.current;
+            if (node) {
+              node.focus();
+              try { node.setSelectionRange(node.value.length, node.value.length); } catch (error) { /* 忽略 */ }
+            }
+          });
+        };
+        const cancelEdit = () => {
+          setDraft(null);
+          setWiki(null);
+        };
+        const saveEdit = () => {
+          const value = String(draft || '').trim();
+          if (!value) return;
+          props.onSave(value);
+          setDraft(null);
+          setWiki(null);
+        };
+
+        useEffect(() => {
+          const onKey = (event) => {
+            if (event.key === 'Escape') {
+              event.preventDefault();
+              if (draft !== null) setDraft(null);
+              else props.onClose();
+              return;
+            }
+            if (event.key === 'Enter' && (event.metaKey || event.ctrlKey) && draft !== null) {
+              event.preventDefault();
+              const value = String(draft || '').trim();
+              if (value) {
+                props.onSave(value);
+                setDraft(null);
+              }
+              return;
+            }
+            // 只在“看”的状态下用左右键切换便签；编辑中/输入框聚焦时一律放行
+            if (draft !== null) return;
+            const node = event.target;
+            const tag = node && node.tagName ? String(node.tagName).toUpperCase() : '';
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || (node && node.isContentEditable)) return;
+            if (event.key === 'ArrowLeft' && props.onPrev) {
+              event.preventDefault();
+              props.onPrev();
+              return;
+            }
+            if (event.key === 'ArrowRight' && props.onNext) {
+              event.preventDefault();
+              props.onNext();
+            }
+          };
+          window.addEventListener('keydown', onKey);
+          return () => window.removeEventListener('keydown', onKey);
+        }, [props, draft]);
+
+        const remind = reminderStateOf(note, Date.now());
+        const names = (note.categoryIds || [])
+          .map((id) => (categories || []).find((item) => item.id === id))
+          .filter(Boolean)
+          .map((item) => item.name);
+
+        // 拖动窗口：按住标题栏
+        const startDrag = (event) => {
+          if (event.button !== undefined && event.button !== 0) return;
+          const origin = { x: event.clientX, y: event.clientY, left: props.x || 0, top: props.y || 0 };
+          const move = (movedEvent) => {
+            props.onMove(origin.left + (movedEvent.clientX - origin.x), origin.top + (movedEvent.clientY - origin.y));
+          };
+          const stop = () => {
+            window.removeEventListener('pointermove', move);
+            window.removeEventListener('pointerup', stop);
+          };
+          window.addEventListener('pointermove', move);
+          window.addEventListener('pointerup', stop);
+          event.preventDefault();
+          event.stopPropagation();
+        };
+
+        return h('div', {
+          className: 'dsm-viewerCard dsm-viewerFloat',
+          role: 'dialog',
+          'aria-label': t('view.title'),
+          style: { '--dsm-viewAccent': accent, left: `${Math.round(props.x || 0)}px`, top: `${Math.round(props.y || 0)}px` },
+          onPointerDown: (event) => event.stopPropagation(),
+        },
+            h('div', { className: 'dsm-viewerHead dsm-dragHandle', onPointerDown: startDrag, title: t('view.drag') },
+              h('span', { className: 'dsm-viewerDot' }),
+              h('span', { className: 'dsm-viewerTitle' },
+                [
+                  `${t('view.created')} ${fullTime(note.createdAt, language)}`,
+                  names.length ? names.join(' · ') : '',
+                  remind ? (remind.kind === 'done' ? t('remind.doneBadge') : formatRemind(note.remindAt, language, note.repeat, Date.now(), t)) : '',
+                ].filter(Boolean).join('　·　')),
+              h('button', {
+                type: 'button',
+                className: 'dsm-iconBtn',
+                title: t('note.quote'),
+                'aria-label': t('note.quote'),
+                onClick: () => {
+                  const title = noteTitleOf(note) || note.id.slice(0, 8);
+                  insertIntoComposer(`[[便签:${title}]] `);
+                },
+              }, h(Icon, { name: 'list', size: 14 })),
+              h('button', {
+                type: 'button',
+                className: 'dsm-iconBtn',
+                title: t('image.export'),
+                'aria-label': t('image.export'),
+                onClick: () => exportNoteImage(note, t),
+              }, h(Icon, { name: 'image', size: 14 })),
+              h('button', {
+                type: 'button',
+                className: 'dsm-iconBtn',
+                title: t('view.close'),
+                'aria-label': t('view.close'),
+                onClick: () => props.onClose(),
+              }, h(Icon, { name: 'close', size: 14 }))),
+            editing
+              ? h('div', { className: 'dsm-viewerBody dsm-viewerEdit' },
+                h('textarea', {
+                  ref: inputRef,
+                  className: 'dsm-viewerInput',
+                  style: { flex: '1 1 auto', width: '100%', minHeight: '120px', height: 'auto', resize: 'none', boxSizing: 'border-box' },
+                  value: draft,
+                  'aria-label': t('view.edit'),
+                  onChange: (event) => {
+                    const value = event.target.value;
+                    setDraft(value);
+                    const found = wikiQueryAt(value, event.target.selectionStart);
+                    setWiki(found);
+                    if (found) setWikiIndex(0);
+                  },
+                  onKeyDown: (event) => {
+                    if (wiki) {
+                      if (event.key === 'ArrowDown') {
+                        event.preventDefault();
+                        setWikiIndex((current) => Math.min(current + 1, Math.max(0, wikiItems.length - 1)));
+                        return;
+                      }
+                      if (event.key === 'ArrowUp') {
+                        event.preventDefault();
+                        setWikiIndex((current) => Math.max(0, current - 1));
+                        return;
+                      }
+                      if (event.key === 'Enter' || event.key === 'Tab') {
+                        event.preventDefault();
+                        const picked = wikiItems[Math.min(wikiIndex, wikiItems.length - 1)];
+                        if (picked) pickWiki(picked);
+                        else setWiki(null);
+                        return;
+                      }
+                      if (event.key === 'Escape') {
+                        event.preventDefault();
+                        setWiki(null);
+                        return;
+                      }
+                    }
+                  },
+                }),
+                )
+              : h('div', { className: 'dsm-viewerBody' },
+              h('div', { className: 'dsm-noteText' }, withWikiContext(
+                { notes: props.allNotes || [], onOpen: props.onOpenWiki },
+                () => renderMdBlocks(
+                  blocks,
+                  'view',
+                  props.onImageClick,
+                  props.onToggleTask ? (line, checked) => props.onToggleTask(note.id, line, checked) : undefined,
+                  t('note.toggleTask'),
+                  props.highlight,
+                ),
+              ))),
+            h('div', { className: 'dsm-viewerFoot' },
+              editing
+                ? h('button', {
+                  type: 'button',
+                  className: 'dsm-btn dsm-btnPrimary',
+                  onClick: saveEdit,
+                }, t('view.save'))
+                : h('button', {
+                  type: 'button',
+                  className: 'dsm-btn dsm-btnPrimary',
+                  onClick: startEdit,
+                }, t('view.edit')),
+              editing
+                ? h('button', {
+                  type: 'button',
+                  className: 'dsm-btn',
+                  onClick: cancelEdit,
+                }, t('view.cancel'))
+                : null,
+              h('span', { className: 'dsm-spacer' }),
+              h('span', { className: 'dsm-viewerHint' }, editing ? t('view.editHint') : '← →'),
+              h('button', {
+                type: 'button',
+                className: 'dsm-iconBtn',
+                title: t('view.prev'),
+                'aria-label': t('view.prev'),
+                disabled: !props.onPrev,
+                onClick: () => props.onPrev && props.onPrev(),
+              }, h(Icon, { name: 'chevronLeft', size: 14 })),
+              h('button', {
+                type: 'button',
+                className: 'dsm-iconBtn',
+                title: t('view.next'),
+                'aria-label': t('view.next'),
+                disabled: !props.onNext,
+                onClick: () => props.onNext && props.onNext(),
+              }, h(Icon, { name: 'chevronRight', size: 14 }))));
+      }
+
     function makePanel(t, useLang) {
 
       /** 分类条上的一个胶囊：点击筛选，悬停出现重命名/删除。 */
@@ -3867,279 +4144,6 @@ window.__ModuleLoader__.load({
     }
 
       /** 全文查看：限宽弹窗，Esc 关闭，←/→ 切换上一条/下一条。 */
-      function NoteViewer(props) {
-        const { note, language, categories } = props;
-        const [draft, setDraft] = useState(null);
-        const [wiki, setWiki] = useState(null);
-        const [wikiIndex, setWikiIndex] = useState(0);
-        const inputRef = useRef(null);
-        const editing = draft !== null;
-        const blocks = useMemo(() => parseMarkdownBlocks(note.text), [note.text]);
-        const accent = ACCENTS[note.color] || ACCENTS[DEFAULT_COLOR];
-
-        const wikiItems = useMemo(() => {
-          if (!wiki) return [];
-          const needle = String(wiki.query || '').trim().toLowerCase();
-          return (props.allNotes || [])
-            .filter((item) => item.archived !== true && item.id !== note.id)
-            .filter((item) => (!needle ? true : String(item.text || '').toLowerCase().indexOf(needle) >= 0))
-            .slice(0, 40);
-        }, [wiki, props.allNotes, note.id]);
-
-        const popRef = useRef(null);
-
-        useEffect(() => {
-          if (popRef.current) { popRef.current.remove(); popRef.current = null; }
-          if (!wiki || !editing) return undefined;
-          const node = inputRef.current;
-          if (!node || !node.getBoundingClientRect) return undefined;
-          const rect = node.getBoundingClientRect();
-          const items = (props.allNotes || [])
-            .filter((item) => (!String(wiki.query || '').trim()
-              ? true
-              : String(item.text || '').toLowerCase().indexOf(String(wiki.query).trim().toLowerCase()) >= 0))
-            .slice(0, 40)
-            .map((item) => ({ note: item, label: noteTitleOf(item) || item.id.slice(0, 8) }));
-          if (!items.length) return undefined;
-          popRef.current = showWikiPop(items, rect, (picked) => pickWiki(picked));
-          return () => {
-            if (popRef.current) { popRef.current.remove(); popRef.current = null; }
-          };
-        }, [wiki, editing, props.allNotes]);
-
-        useEffect(() => {
-          if (popRef.current) popRef.current.setActive(wikiIndex);
-        }, [wikiIndex, wiki]);
-
-        const pickWiki = (target) => {
-          if (!wiki) return;
-          const title = noteTitleOf(target) || target.id.slice(0, 8);
-          const next = applyWikiLink(draft || '', wiki.start, title);
-          setDraft(next.text);
-          setWiki(null);
-          setWikiIndex(0);
-          requestAnimationFrame(() => {
-            const node = inputRef.current;
-            if (node) {
-              node.focus();
-              try { node.setSelectionRange(next.caret, next.caret); } catch (error) { /* 忽略 */ }
-            }
-          });
-        };
-
-        const startEdit = () => {
-          setDraft(note.text);
-          setWiki(null);
-          requestAnimationFrame(() => {
-            const node = inputRef.current;
-            if (node) {
-              node.focus();
-              try { node.setSelectionRange(node.value.length, node.value.length); } catch (error) { /* 忽略 */ }
-            }
-          });
-        };
-        const cancelEdit = () => {
-          setDraft(null);
-          setWiki(null);
-        };
-        const saveEdit = () => {
-          const value = String(draft || '').trim();
-          if (!value) return;
-          props.onSave(value);
-          setDraft(null);
-          setWiki(null);
-        };
-
-        useEffect(() => {
-          const onKey = (event) => {
-            if (event.key === 'Escape') {
-              event.preventDefault();
-              if (draft !== null) setDraft(null);
-              else props.onClose();
-              return;
-            }
-            if (event.key === 'Enter' && (event.metaKey || event.ctrlKey) && draft !== null) {
-              event.preventDefault();
-              const value = String(draft || '').trim();
-              if (value) {
-                props.onSave(value);
-                setDraft(null);
-              }
-              return;
-            }
-            // 只在“看”的状态下用左右键切换便签；编辑中/输入框聚焦时一律放行
-            if (draft !== null) return;
-            const node = event.target;
-            const tag = node && node.tagName ? String(node.tagName).toUpperCase() : '';
-            if (tag === 'INPUT' || tag === 'TEXTAREA' || (node && node.isContentEditable)) return;
-            if (event.key === 'ArrowLeft' && props.onPrev) {
-              event.preventDefault();
-              props.onPrev();
-              return;
-            }
-            if (event.key === 'ArrowRight' && props.onNext) {
-              event.preventDefault();
-              props.onNext();
-            }
-          };
-          window.addEventListener('keydown', onKey);
-          return () => window.removeEventListener('keydown', onKey);
-        }, [props, draft]);
-
-        const remind = reminderStateOf(note, Date.now());
-        const names = (note.categoryIds || [])
-          .map((id) => (categories || []).find((item) => item.id === id))
-          .filter(Boolean)
-          .map((item) => item.name);
-
-        // 拖动窗口：按住标题栏
-        const startDrag = (event) => {
-          if (event.button !== undefined && event.button !== 0) return;
-          const origin = { x: event.clientX, y: event.clientY, left: props.x || 0, top: props.y || 0 };
-          const move = (movedEvent) => {
-            props.onMove(origin.left + (movedEvent.clientX - origin.x), origin.top + (movedEvent.clientY - origin.y));
-          };
-          const stop = () => {
-            window.removeEventListener('pointermove', move);
-            window.removeEventListener('pointerup', stop);
-          };
-          window.addEventListener('pointermove', move);
-          window.addEventListener('pointerup', stop);
-          event.preventDefault();
-          event.stopPropagation();
-        };
-
-        return h('div', {
-          className: 'dsm-viewerCard dsm-viewerFloat',
-          role: 'dialog',
-          'aria-label': t('view.title'),
-          style: { '--dsm-viewAccent': accent, left: `${Math.round(props.x || 0)}px`, top: `${Math.round(props.y || 0)}px` },
-          onPointerDown: (event) => event.stopPropagation(),
-        },
-            h('div', { className: 'dsm-viewerHead dsm-dragHandle', onPointerDown: startDrag, title: t('view.drag') },
-              h('span', { className: 'dsm-viewerDot' }),
-              h('span', { className: 'dsm-viewerTitle' },
-                [
-                  `${t('view.created')} ${fullTime(note.createdAt, language)}`,
-                  names.length ? names.join(' · ') : '',
-                  remind ? (remind.kind === 'done' ? t('remind.doneBadge') : formatRemind(note.remindAt, language, note.repeat, Date.now(), t)) : '',
-                ].filter(Boolean).join('　·　')),
-              h('button', {
-                type: 'button',
-                className: 'dsm-iconBtn',
-                title: t('note.quote'),
-                'aria-label': t('note.quote'),
-                onClick: () => {
-                  const title = noteTitleOf(note) || note.id.slice(0, 8);
-                  insertIntoComposer(`[[便签:${title}]] `);
-                },
-              }, h(Icon, { name: 'list', size: 14 })),
-              h('button', {
-                type: 'button',
-                className: 'dsm-iconBtn',
-                title: t('image.export'),
-                'aria-label': t('image.export'),
-                onClick: () => exportNoteImage(note, t),
-              }, h(Icon, { name: 'image', size: 14 })),
-              h('button', {
-                type: 'button',
-                className: 'dsm-iconBtn',
-                title: t('view.close'),
-                'aria-label': t('view.close'),
-                onClick: () => props.onClose(),
-              }, h(Icon, { name: 'close', size: 14 }))),
-            editing
-              ? h('div', { className: 'dsm-viewerBody dsm-viewerEdit' },
-                h('textarea', {
-                  ref: inputRef,
-                  className: 'dsm-viewerInput',
-                  value: draft,
-                  'aria-label': t('view.edit'),
-                  onChange: (event) => {
-                    const value = event.target.value;
-                    setDraft(value);
-                    const found = wikiQueryAt(value, event.target.selectionStart);
-                    setWiki(found);
-                    if (found) setWikiIndex(0);
-                  },
-                  onKeyDown: (event) => {
-                    if (wiki) {
-                      if (event.key === 'ArrowDown') {
-                        event.preventDefault();
-                        setWikiIndex((current) => Math.min(current + 1, Math.max(0, wikiItems.length - 1)));
-                        return;
-                      }
-                      if (event.key === 'ArrowUp') {
-                        event.preventDefault();
-                        setWikiIndex((current) => Math.max(0, current - 1));
-                        return;
-                      }
-                      if (event.key === 'Enter' || event.key === 'Tab') {
-                        event.preventDefault();
-                        const picked = wikiItems[Math.min(wikiIndex, wikiItems.length - 1)];
-                        if (picked) pickWiki(picked);
-                        else setWiki(null);
-                        return;
-                      }
-                      if (event.key === 'Escape') {
-                        event.preventDefault();
-                        setWiki(null);
-                        return;
-                      }
-                    }
-                  },
-                }),
-                )
-              : h('div', { className: 'dsm-viewerBody' },
-              h('div', { className: 'dsm-noteText' }, withWikiContext(
-                { notes: props.allNotes || [], onOpen: props.onOpenWiki },
-                () => renderMdBlocks(
-                  blocks,
-                  'view',
-                  props.onImageClick,
-                  props.onToggleTask ? (line, checked) => props.onToggleTask(note.id, line, checked) : undefined,
-                  t('note.toggleTask'),
-                  props.highlight,
-                ),
-              ))),
-            h('div', { className: 'dsm-viewerFoot' },
-              editing
-                ? h('button', {
-                  type: 'button',
-                  className: 'dsm-btn dsm-btnPrimary',
-                  onClick: saveEdit,
-                }, t('view.save'))
-                : h('button', {
-                  type: 'button',
-                  className: 'dsm-btn dsm-btnPrimary',
-                  onClick: startEdit,
-                }, t('view.edit')),
-              editing
-                ? h('button', {
-                  type: 'button',
-                  className: 'dsm-btn',
-                  onClick: cancelEdit,
-                }, t('view.cancel'))
-                : null,
-              h('span', { className: 'dsm-spacer' }),
-              h('span', { className: 'dsm-viewerHint' }, editing ? t('view.editHint') : '← →'),
-              h('button', {
-                type: 'button',
-                className: 'dsm-iconBtn',
-                title: t('view.prev'),
-                'aria-label': t('view.prev'),
-                disabled: !props.onPrev,
-                onClick: () => props.onPrev && props.onPrev(),
-              }, h(Icon, { name: 'chevronLeft', size: 14 })),
-              h('button', {
-                type: 'button',
-                className: 'dsm-iconBtn',
-                title: t('view.next'),
-                'aria-label': t('view.next'),
-                disabled: !props.onNext,
-                onClick: () => props.onNext && props.onNext(),
-              }, h(Icon, { name: 'chevronRight', size: 14 }))));
-      }
 
       function NoteCard(props) {
         const note = props.note;
@@ -6189,6 +6193,7 @@ window.__ModuleLoader__.load({
                 const order = display.findIndex((item) => item.id === note.id);
                 return h(NoteViewer, {
                   key: `${entry.id}-${index}`,
+                  t,
                   note,
                   x: entry.x,
                   y: entry.y,
