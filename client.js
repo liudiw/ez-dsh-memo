@@ -1836,6 +1836,7 @@ window.__ModuleLoader__.load({
         // 悬浮查看窗：按住标题栏拖，不挡后面的会话
         const startDrag = (event) => {
           if (event.button !== undefined && event.button !== 0) return;
+          if (props.onActivate) props.onActivate();   // 拖标题栏也算激活（header 会 stopPropagation）
           const origin = { x: event.clientX, y: event.clientY, left: drag ? drag.x : 40, top: drag ? drag.y : 90 };
           const move = (moved) => {
             setDrag({
