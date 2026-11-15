@@ -2337,6 +2337,24 @@ window.__ModuleLoader__.load({
     }
 
     /** 会话消息尾部/操作条的「收进便签」按钮：从 DOM 取该条消息的渲染文本。 */
+    /** 悬浮 tooltip：挂到 body 上，黑底白字，显示在目标下方（不会被容器裁切）。 */
+    function showTip(text, target) {
+      try {
+        if (!target || typeof document === 'undefined') return () => {};
+        const box = target.getBoundingClientRect();
+        const tip = document.createElement('div');
+        tip.textContent = text;
+        tip.setAttribute('style', 'position:fixed;z-index:2147483600;left:' + Math.round(box.left + box.width / 2)
+          + 'px;top:' + Math.round(box.bottom + 6) + 'px;transform:translateX(-50%);white-space:nowrap;'
+          + 'background:#1b1b1f;color:#fff;font-size:13.5px;line-height:1;padding:7px 10px;border-radius:7px;'
+          + 'pointer-events:none;box-shadow:0 8px 20px -8px rgba(0,0,0,.5)');
+        document.body.appendChild(tip);
+        return () => { try { tip.remove(); } catch (error) { /* 忽略 */ } };
+      } catch (error) {
+        return () => {};
+      }
+    }
+
     function makeCaptureButton(t) {
       return function MemoCaptureButton(props) {
         const collect = (event) => {
@@ -2361,13 +2379,15 @@ window.__ModuleLoader__.load({
             console.error('dsh-memo: 收集消息失败', error);
           }
         };
+        let hideTip = () => {};
         return h('button', {
           type: 'button',
-          className: 'dsm-captureBtn dsm-tip',
+          className: 'dsm-captureBtn',
           'aria-label': t('capture.button'),
-          'data-tip': t('capture.button'),
           'data-message-id': props && props.messageId ? props.messageId : undefined,
           onClick: collect,
+          onMouseEnter: (event) => { hideTip = showTip(t('capture.button'), event.currentTarget); },
+          onMouseLeave: () => { hideTip(); hideTip = () => {}; },
         }, h(Icon, { name: 'pin', size: 16 }));
       };
     }
