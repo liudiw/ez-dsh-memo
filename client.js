@@ -1585,6 +1585,15 @@ window.__ModuleLoader__.load({
       return payload.result || {};
     }
 
+    /** 编辑过才返回“最后编辑”的相对时间，否则返回空串。 */
+    function editedAgo(note, language) {
+      const created = Date.parse((note && note.createdAt) || '');
+      const updated = Date.parse((note && note.updatedAt) || '');
+      if (!Number.isFinite(created) || !Number.isFinite(updated)) return '';
+      if (updated - created < 60000) return '';
+      return timeAgo(note.updatedAt, language);
+    }
+
     function timeAgo(iso, language) {
       const stamp = Date.parse(iso);
       if (!Number.isFinite(stamp)) return '';
@@ -1912,7 +1921,7 @@ window.__ModuleLoader__.load({
                     },
                       h('span', { className: 'dsm-quickDot', style: { background: ACCENTS[note.color] || ACCENTS[DEFAULT_COLOR] } }),
                       h('span', { className: 'dsm-drawerText' }, stripWiki(String(noteTitleOf(note) || note.id.slice(0, 8)))),
-                      h('span', { className: 'dsm-drawerTime' }, fullTime(note.createdAt, 'zh'))));
+                      h('span', { className: 'dsm-drawerTime' }, fullTime(editedAgo(note, 'zh') ? note.updatedAt : note.createdAt, 'zh'))));
                   });
                 }
                 let bucket = '';
@@ -4505,7 +4514,9 @@ window.__ModuleLoader__.load({
           setRemindOpen(false);
         };
 
-        const stampLabel = `${timeAgo(note.createdAt, language)}（${fullTime(note.createdAt, language)}）`;
+        const cardEdited = editedAgo(note, language);
+        const stampLabel = `${timeAgo(note.createdAt, language)}（${fullTime(note.createdAt, language)}）${
+          cardEdited ? ` · ${language === 'zh' ? `${cardEdited}编辑` : `edited ${cardEdited}`}` : ''}`;
 
         const footerLeft = [
           note.pinned
