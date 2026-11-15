@@ -1173,15 +1173,26 @@ window.__ModuleLoader__.load({
     const MIN_PER_ROW_WIDTH = 180
 
     /** 便签宽度：手动调过就用它；否则默认「一行五张」，太窄就逐级减少。 */
-    function packWidthOf(note, maxWidth, gap) {
-      const explicit = Number.isFinite(note.width) && note.width > 0;
-      const base = noteWidthOf(note);
-      if (explicit) return Math.min(base, maxWidth);
+    /**
+     * 布局度量：优先级 便签最小宽度 > 间距 > 每行数量。
+     * 先保证每格 ≥ MIN_PER_ROW_WIDTH，其次把间距从 14 逐步压到 8，最后才减少每行数量。
+     */
+    function packMetrics(maxWidth) {
+      const preferredGap = 14;
+      const gaps = [preferredGap, 11, 8];
       for (const count of PER_ROW_STEPS) {
-        const width = (maxWidth - gap * (count - 1)) / count;
-        if (width >= MIN_PER_ROW_WIDTH) return Math.min(width, maxWidth);
+        for (const gap of gaps) {
+          const cell = (maxWidth - gap * (count - 1)) / count;
+          if (cell >= MIN_PER_ROW_WIDTH) return { count, gap, cell };
+        }
       }
-      return maxWidth;
+      return { count: 1, gap: 0, cell: Math.max(MIN_PER_ROW_WIDTH, maxWidth) };
+    }
+
+    /** 单张便签宽度：用户拖过的宽度也**不得超过当前列宽**（否则会重叠）。 */
+    function packWidthOf(note, cell) {
+      const base = noteWidthOf(note);
+      return Math.max(Math.min(base, cell), Math.min(MIN_PER_ROW_WIDTH, cell));
     }
 
     /**
@@ -1189,12 +1200,14 @@ window.__ModuleLoader__.load({
      * 所以某张便签被拖高之后，它旁边那些矮便签下方的空隙，后面的便签还能钻进去——
      * 错落排布、不浪费空间。间距横竖都用同一个 gap。
      */
-    function packNotes(notes, width, gap) {
+    function packNotes(notes, width) {
+      const metrics = packMetrics(Math.max(120, width));
       const maxWidth = Math.max(120, width);
+      const gap = metrics.gap;
       const positions = new Map();
       const placed = [];
       for (const note of notes) {
-        const w = packWidthOf(note, maxWidth, gap);
+        const w = packWidthOf(note, metrics.cell);
         const h = noteHeightOf(note);
         let spot = null;
         const rows = [...new Set([0].concat(placed.map((rect) => rect.y + rect.h + gap)))].sort((a, b) => a - b);
