@@ -5875,7 +5875,13 @@ window.__ModuleLoader__.load({
             style: { height: `${Math.round(layout.height)}px` },
           },
             display.map((note) => {
-              const spot = layout.positions.get(note.id) || { x: 0, y: 0, w: noteWidthOf(note), h: noteHeightOf(note) };
+              const measured = (innerRef.current && innerRef.current.clientWidth) || wallWidth || noteWidthOf(note);
+              const spot = layout.positions.get(note.id) || {
+                x: 0,
+                y: 0,
+                w: Math.min(noteWidthOf(note), Math.max(MIN_PER_ROW_WIDTH, measured)),
+                h: noteHeightOf(note),
+              };
               return draggingId === note.id
                 // 被拖走的便签原位置：透明虚线框，尺寸与卡片一致，松手就落在这里
                 ? h('div', {
