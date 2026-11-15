@@ -1657,10 +1657,12 @@ window.__ModuleLoader__.load({
               event.preventDefault();
               const needleNow = String(query || '').trim().toLowerCase();
               // 必须与列表渲染用同一份顺序（按建立时间倒序），否则回车会打开错位的便签
-              const listNow = notes
+              const ordered = notes
                 .slice()
                 .sort((a, b) => (Date.parse(b.createdAt || '') || 0) - (Date.parse(a.createdAt || '') || 0))
-                .filter((item) => (!needleNow ? true : String(item.text || '').toLowerCase().indexOf(needleNow) >= 0))
+                .filter((item) => (!needleNow ? true : String(item.text || '').toLowerCase().indexOf(needleNow) >= 0));
+              const listNow = ordered.filter((item) => item.pinned === true)
+                .concat(ordered.filter((item) => item.pinned !== true))
                 .slice(0, 60);
               if (drawKey === 'arrowdown') {
                 setActiveIndex((current) => Math.min(current + 1, Math.max(0, listNow.length - 1)));
@@ -1721,10 +1723,12 @@ window.__ModuleLoader__.load({
             const tag = node && node.tagName ? String(node.tagName).toUpperCase() : '';
             if (tag === 'INPUT' || tag === 'TEXTAREA') return;   // 搜索框里保留原生编辑
             const needleNow = String(query || '').trim().toLowerCase();
-            const listNow = notes
+            const ordered = notes
               .slice()
               .sort((a, b) => (Date.parse(b.createdAt || '') || 0) - (Date.parse(a.createdAt || '') || 0))
-              .filter((item) => (!needleNow ? true : String(item.text || '').toLowerCase().indexOf(needleNow) >= 0))
+              .filter((item) => (!needleNow ? true : String(item.text || '').toLowerCase().indexOf(needleNow) >= 0));
+            const listNow = ordered.filter((item) => item.pinned === true)
+              .concat(ordered.filter((item) => item.pinned !== true))
               .slice(0, 60);
             if (!listNow.length) return;
             event.preventDefault();
@@ -1866,6 +1870,7 @@ window.__ModuleLoader__.load({
                 const rows = [];
                 const pinnedNotes = shown.filter((note) => note.pinned === true);
                 const restNotes = shown.filter((note) => note.pinned !== true);
+                const orderIndex = new Map(pinnedNotes.concat(restNotes).map((item, position) => [item.id, position]));
                 if (pinnedNotes.length) {
                   rows.push(h('div', { key: 'group-pinned', className: 'dsm-drawerGroup' }, t('drawer.pinned')));
                   pinnedNotes.forEach((note) => {
@@ -1873,6 +1878,7 @@ window.__ModuleLoader__.load({
                       key: `pin-${note.id}`,
                       type: 'button',
                       className: 'dsm-drawerItem',
+                      'data-active': orderIndex.get(note.id) === activeIndex ? 'true' : undefined,
                       onClick: () => setView(note),
                     },
                       h('span', { className: 'dsm-quickDot', style: { background: ACCENTS[note.color] || ACCENTS[DEFAULT_COLOR] } }),
@@ -1892,6 +1898,7 @@ window.__ModuleLoader__.load({
                     key: note.id,
                     type: 'button',
                     className: 'dsm-drawerItem',
+                    'data-active': orderIndex.get(note.id) === activeIndex ? 'true' : undefined,
                     onClick: () => setView(note),
                   },
                     h('span', { className: 'dsm-quickDot', style: { background: ACCENTS[note.color] || ACCENTS[DEFAULT_COLOR] } }),
