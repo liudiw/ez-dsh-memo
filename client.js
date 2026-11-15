@@ -2352,10 +2352,12 @@ window.__ModuleLoader__.load({
         const button = document.createElement('button');
         button.type = 'button';
         button.textContent = item.label;
-        button.setAttribute('style', 'display:block;width:100%;text-align:left;font-family:inherit;'
-          + 'font-size:12.5px;line-height:1.45;height:auto;min-height:0;padding:6px 8px;border:none;'
-          + 'border-radius:6px;background:transparent;cursor:pointer;white-space:nowrap;overflow:hidden;'
-          + 'text-overflow:ellipsis;color:var(--dsw-alias-label-primary,#222)');
+        button.setAttribute('style', 'display:flex!important;align-items:center;width:100%;box-sizing:border-box;'
+          + 'text-align:left;font-family:inherit;font-size:12.5px!important;line-height:1.5!important;'
+          + 'height:auto!important;min-height:26px!important;max-height:none!important;'
+          + 'padding:6px 9px!important;margin:0!important;border:none;border-radius:6px;background:transparent;'
+          + 'cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'
+          + 'color:var(--dsw-alias-label-primary,#222)');
         button.onmousedown = (event) => { event.preventDefault(); onPick(item.note); };
         el.appendChild(button);
         return button;
@@ -2367,6 +2369,10 @@ window.__ModuleLoader__.load({
             ? 'color-mix(in srgb, var(--dsw-alias-brand-primary,#4c6ef5) 16%, transparent)'
             : 'transparent';
         });
+        const active = buttons[index];
+        if (active && typeof active.scrollIntoView === 'function') {
+          try { active.scrollIntoView({ block: 'nearest' }); } catch (error) { /* 忽略 */ }
+        }
       };
       setActive(0);
       return {
