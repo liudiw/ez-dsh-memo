@@ -23,8 +23,9 @@ const MAX_PAGES = 50
 const TIMEOUT_MS = 20000
 
 /** 便签「内容指纹」：只有这些字段变化才需要同步。 */
-export function payloadHashOf(note) {
+export function payloadHashOf(note, categoryNames) {
   const raw = JSON.stringify({
+    categories: (Array.isArray(categoryNames) ? categoryNames : []).join('|'),
     text: note.text ?? '',
     color: note.color ?? '',
     pinned: note.pinned === true,
@@ -177,7 +178,7 @@ export function noteFilePath(folder, note) {
   return `${folder}/${day}-${time}-${slug}${suffix ? `-${suffix}` : ''}.md`
 }
 
-export function toMarkdown(note) {
+export function toMarkdown(note, categoryNames) {
   const lines = [
     '---',
     `dsh-memo-id: ${note.id}`,
@@ -192,11 +193,39 @@ export function toMarkdown(note) {
     lines.push(`dsh-memo-repeat: ${note.repeat.kind}${note.repeat.weekday === undefined || note.repeat.weekday === null ? '' : `:${note.repeat.weekday}`}`)
   }
   if (note.done === true) lines.push('dsh-memo-done: true')
+  const names = (Array.isArray(categoryNames) ? categoryNames : []).filter(Boolean)
+  if (names.length) lines.push(`dsh-memo-categories: ${names.join(',')}`)
   lines.push('---', '', String(note.text || ''))
   return `${lines.join('\n')}\n`
 }
 
 /** 解析我们写出的 frontmatter；用户手写的普通 md 没有 frontmatter 时正文即全文。 */
+/** 分类目录：每行 `名称|颜色|序号`，作为单个文件同步，改名/排序直接覆盖。 */
+export const CATALOG_FILE = '_便签分类.md'
+
+export function catalogToMarkdown(categories) {
+  const lines = ['# 便签分类', '']
+  for (const item of categories || []) {
+    const name = String(item.name || '').replace(/[|\n]/g, ' ').trim()
+    if (!name) continue
+    lines.push(`${name}|${item.color || ''}|${Number(item.order) || 0}`)
+  }
+  return `${lines.join('\n')}\n`
+}
+
+export function parseCatalog(markdown) {
+  const out = []
+  for (const line of String(markdown || '').split('\n')) {
+    const trimmed = line.trim()
+    if (!trimmed || trimmed.startsWith('#')) continue
+    const [name, color, order] = trimmed.split('|')
+    const clean = String(name || '').trim()
+    if (!clean) continue
+    out.push({ name: clean, color: String(color || '').trim() || null, order: Number(order) || 0 })
+  }
+  return out
+}
+
 export function parseMarkdown(markdown) {
   const text = String(markdown ?? '').replace(/\r\n?/g, '\n')
   if (!text.startsWith('---\n')) return { fields: {}, body: text.trim() }
@@ -230,6 +259,9 @@ export function payloadFromMarkdown(parsed, base) {
     remindAt: fields['dsh-memo-remind'] !== undefined ? cleanRemindField(fields['dsh-memo-remind']) : fallback.remindAt ?? null,
     repeat: fields['dsh-memo-repeat'] !== undefined ? cleanRepeatField(fields['dsh-memo-repeat']) : fallback.repeat ?? null,
     done: fields['dsh-memo-done'] !== undefined ? fields['dsh-memo-done'] === 'true' : fallback.done === true,
+    categoryNames: fields['dsh-memo-categories'] !== undefined
+      ? String(fields['dsh-memo-categories']).split(',').map((name) => name.trim()).filter(Boolean)
+      : fallback.categoryNames,
     createdAt: typeof fields.created === 'string' && fields.created ? fields.created : fallback.createdAt,
     remoteId: typeof fields['dsh-memo-id'] === 'string' ? fields['dsh-memo-id'] : undefined,
   }
@@ -294,7 +326,7 @@ export function createSyncEngine(options) {
   async function pushNote(note, pathOverride) {
     // 已有映射的便签沿用原文件名：改正文不该在 vault 里多出一个 md。
     const path = pathOverride || noteFilePath(folder, note)
-    const created = await client.notePut(path, toMarkdown(note))
+    const created = await client.notePut(path, toMarkdown(note, namesFor(note)))
     const info = created && (created.lastTime !== undefined || created.version !== undefined)
       ? created
       : await client.noteGet(path)
@@ -304,13 +336,15 @@ export function createSyncEngine(options) {
       path,
       ...fingerprintOf(info),
       syncedAt: new Date().toISOString(),
-    }, payloadHashOf(note))
+    }, payloadHashOf(note, namesFor(note)))
     return path
   }
 
   async function runOnce() {
     const stats = emptyStats()
-    const { notes } = await store.list()
+    const { notes, categories } = await store.list()
+    const nameById = new Map((categories || []).map((item) => [item.id, item.name]))
+    const namesFor = (note) => (note.categoryIds || []).map((id) => nameById.get(id)).filter(Boolean)
     // 冲突副本单轮上限：逻辑上不该出现大量冲突，这里是防跑飞的保险丝。
     const MAX_CONFLICT_COPIES = 5
     let conflictCopies = 0
@@ -339,14 +373,48 @@ export function createSyncEngine(options) {
       await store.dropTombstone(entry.path)
     }
 
+    // 0.5) 分类目录：先按本地写远端（覆盖），再把远端新增/改名读回来
+    try {
+      const catalogPath = `${folder}/${CATALOG_FILE}`
+      const catalogBody = catalogToMarkdown(categories)
+      const existing = await store.readCatalogHash?.()
+      if (existing !== catalogBody) {
+        await client.notePut(catalogPath, catalogBody)
+        await store.writeCatalogHash?.(catalogBody)
+      }
+    } catch (error) {
+      // 目录同步失败不影响便签本体
+    }
+
     const remoteItems = (await client.listNotes()).filter((item) => inFolder(item.path))
     const remoteByPath = new Map(remoteItems.map((item) => [item.path, item]))
     /** 映射的文件在远端消失了：先别删，等导入阶段确认它是不是被 RENAME 了。 */
     const maybeDeleted = []
 
+    // 0.6) 远端目录里的分类，本地没有就建（存在同名则跳过）
+    try {
+      const catalogPath = `${folder}/${CATALOG_FILE}`
+      if (remoteItems.some((item) => item.path === catalogPath)) {
+        const body = await client.noteGet(catalogPath)
+        const parsedCatalog = parseCatalog(typeof body === 'string' ? body : body?.content || '')
+        const known = new Set((categories || []).map((item) => String(item.name || '').toLowerCase()))
+        for (const entry of parsedCatalog) {
+          if (known.has(entry.name.toLowerCase())) continue
+          try {
+            await store.categoryAdd({ name: entry.name })
+            known.add(entry.name.toLowerCase())
+          } catch (error) {
+            // 超上限或其它原因，跳过
+          }
+        }
+      }
+    } catch (error) {
+      // 目录读取失败不影响便签本体
+    }
+
     // 1) 本地 → 远端 / 远端 → 本地 / 冲突
     for (const note of notes) {
-      const payload = payloadHashOf(note)
+      const payload = payloadHashOf(note, namesFor(note))
       const remote = note.remote && note.remote.path ? note.remote : null
 
       if (!remote) {
@@ -376,7 +444,12 @@ export function createSyncEngine(options) {
           { path: remote.path, ...fingerprintOf(fetched ?? item) },
           payload,
         )
-        if (outcome.applied) stats.pulled += 1
+        if (outcome.applied) {
+          stats.pulled += 1
+          if (Array.isArray(incoming.categoryNames)) {
+            try { await store.update({ id: note.id, categories: incoming.categoryNames }) } catch (error) { /* 忽略 */ }
+          }
+        }
         continue
       }
 
@@ -423,6 +496,9 @@ export function createSyncEngine(options) {
         continue
       }
       await store.createFromRemote({ ...incoming, id: incoming.remoteId }, { remote: { path, ...fingerprintOf(fetched ?? item) } })
+      if (Array.isArray(incoming.categoryNames) && incoming.categoryNames.length && incoming.remoteId) {
+        await store.update({ id: incoming.remoteId, categories: incoming.categoryNames })
+      }
       stats.imported += 1
     }
 
@@ -433,7 +509,7 @@ export function createSyncEngine(options) {
         const note = fresh.notes.find((item) => item.id === stale.id)
         if (!note) continue
         if (note.remote?.path && remoteByPath.has(note.remote.path)) continue // 已被 rename 认回
-        if (note.remote?.payloadHash === payloadHashOf(note)) {
+        if (note.remote?.payloadHash === payloadHashOf(note, namesFor(note))) {
           await store.remove({ id: note.id }, { tombstone: false })
           stats.deleted += 1
         } else {
