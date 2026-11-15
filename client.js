@@ -3880,7 +3880,7 @@ window.__ModuleLoader__.load({
           return (props.allNotes || [])
             .filter((item) => item.archived !== true && item.id !== note.id)
             .filter((item) => (!needle ? true : String(item.text || '').toLowerCase().indexOf(needle) >= 0))
-            .slice(0, 8);
+            .slice(0, 40);
         }, [wiki, props.allNotes, note.id]);
 
         const popRef = useRef(null);
@@ -4245,7 +4245,7 @@ window.__ModuleLoader__.load({
           return (props.allNotes || [])
             .filter((item) => item.archived !== true && item.id !== note.id)
             .filter((item) => (!needle ? true : String(item.text || '').toLowerCase().indexOf(needle) >= 0))
-            .slice(0, 8);
+            .slice(0, 40);
         }, [wiki, props.allNotes, note.id]);
 
         const insertWikiLink = useCallback((target) => {
