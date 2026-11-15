@@ -382,7 +382,7 @@ window.__ModuleLoader__.load({
 .dsm-collectBtn:hover{opacity:1;color:var(--dsw-alias-brand-primary)}
 .dsm-tip{position:relative}
 .dsm-tip:hover::after{content:attr(data-tip);position:absolute;left:50%;bottom:calc(100% + 6px);transform:translateX(-50%);white-space:nowrap;background:#1b1b1f;color:#fff;font-size:12.5px;line-height:1;padding:6px 9px;border-radius:7px;pointer-events:none;z-index:2147483000;box-shadow:0 8px 20px -8px rgba(0,0,0,.5)}
-.dsm-confirmFloat{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2147482800;width:min(360px,86vw);padding:14px 16px;border-radius:14px;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base);box-shadow:0 26px 60px -26px rgba(0,0,0,.55);pointer-events:auto}
+.dsm-confirmPop{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:40;width:min(320px,80vw);padding:14px 16px;border-radius:14px;border:1px solid color-mix(in srgb,var(--dsw-alias-brand-primary) 45%,var(--dsw-alias-border-l1));background:var(--dsw-alias-bg-base);box-shadow:0 26px 60px -26px rgba(0,0,0,.55),0 0 0 1px color-mix(in srgb,var(--dsw-alias-brand-primary) 12%,transparent);pointer-events:auto}
 .dsm-confirmText{font-size:13px;line-height:1.6;color:var(--dsw-alias-label-primary);margin-bottom:12px}
 .dsm-confirmActions{display:flex;gap:8px;justify-content:flex-end}
 .dsm-captureGroup{display:inline-flex;align-items:center;gap:2px}
@@ -652,7 +652,7 @@ window.__ModuleLoader__.load({
 .dsm-setNote{font-size:12px;color:var(--dsw-alias-label-secondary)}
 /* 快速便签 */
 .dsm-quickLayer{position:fixed;inset:0;z-index:2147482000;pointer-events:auto;display:flex;align-items:flex-start;justify-content:center;padding-top:12vh;background:color-mix(in srgb,var(--dsw-alias-label-primary) 20%,transparent)}
-.dsm-quickPanel{pointer-events:auto;box-sizing:border-box;width:min(520px,92vw);display:flex;flex-direction:column;gap:8px;padding:12px 14px;border-radius:14px;background:var(--dsw-alias-bg-base);border:1px solid var(--dsw-alias-border-l1);box-shadow:0 30px 70px -30px rgba(0,0,0,.55)}
+.dsm-quickPanel{pointer-events:auto;position:relative;box-sizing:border-box;width:min(520px,92vw);display:flex;flex-direction:column;gap:8px;padding:12px 14px;border-radius:14px;background:var(--dsw-alias-bg-base);border:1px solid var(--dsw-alias-border-l1);box-shadow:0 30px 70px -30px rgba(0,0,0,.55)}
 .dsm-quickHead{display:flex;align-items:center;gap:7px;font-size:13px}
 .dsm-quickConfirm{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px;padding:7px 8px;border-radius:8px;background:color-mix(in srgb,var(--dsw-alias-brand-primary) 8%,transparent);border:1px solid var(--dsw-alias-border-l1)}
 .dsm-quickConfirm>span{flex:1 1 100%;color:var(--dsw-alias-label-secondary)}
@@ -3068,14 +3068,6 @@ window.__ModuleLoader__.load({
                   () => renderMdBlocks(parseMarkdownBlocks(view.text), 'quick'),
                 ))))
             : null,
-          confirmClose
-            ? h('div', { className: 'dsm-confirmFloat', role: 'dialog', 'aria-label': t('quick.keepDraft') },
-              h('div', { className: 'dsm-confirmText' }, t('quick.keepDraft')),
-              h('div', { className: 'dsm-confirmActions' },
-                h('button', { type: 'button', className: 'dsm-btn dsm-btnPrimary', onClick: () => hide() }, t('quick.saveDraft')),
-                h('button', { type: 'button', className: 'dsm-btn', onClick: () => { resetAll(); hide(); } }, t('quick.discard')),
-                h('button', { type: 'button', className: 'dsm-btn', onClick: () => setConfirmClose(false) }, t('quick.cancel'))))
-            : null,
           open
             ? h('div', {
           className: 'dsm-quickLayer',
@@ -3103,6 +3095,14 @@ window.__ModuleLoader__.load({
                 'aria-label': t('view.close'),
                 onClick: requestClose,
               }, h(Icon, { name: 'close', size: 13 }))),
+            confirmClose
+              ? h('div', { className: 'dsm-confirmPop', role: 'dialog', 'aria-label': t('quick.keepDraft') },
+                h('div', { className: 'dsm-confirmText' }, t('quick.keepDraft')),
+                h('div', { className: 'dsm-confirmActions' },
+                  h('button', { type: 'button', className: 'dsm-btn dsm-btnPrimary', onClick: () => hide() }, t('quick.saveDraft')),
+                  h('button', { type: 'button', className: 'dsm-btn', onClick: () => { resetAll(); hide(); } }, t('quick.discard')),
+                  h('button', { type: 'button', className: 'dsm-btn', onClick: () => setConfirmClose(false) }, t('quick.cancel'))))
+              : null,
             h('textarea', {
               ref: areaRef,
               className: 'dsm-quickInput',
