@@ -1765,6 +1765,8 @@ window.__ModuleLoader__.load({
 
         const needle = query.trim().toLowerCase();
         const shown = notes
+          .slice()
+          .sort((a, b) => (Date.parse(b.createdAt || '') || 0) - (Date.parse(a.createdAt || '') || 0))
           .filter((note) => (!needle ? true : String(note.text || '').toLowerCase().indexOf(needle) >= 0))
           .slice(0, 60);
 
