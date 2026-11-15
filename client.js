@@ -684,7 +684,7 @@ window.__ModuleLoader__.load({
 .dsm-viewerDot{width:9px;height:9px;border-radius:50%;flex:none;background:var(--dsm-viewAccent,#888)}
 .dsm-viewerTitle{flex:1 1 auto;min-width:0;font-size:12.5px;color:var(--dsw-alias-label-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dsm-viewerLayer{position:absolute;inset:0;z-index:55;background:color-mix(in srgb,var(--dsw-alias-label-primary) 22%,transparent)}
-.dsm-viewerFloat{position:absolute;width:min(600px,94%);max-height:none;box-shadow:0 34px 80px -30px rgba(0,0,0,.6)}
+.dsm-viewerFloat{position:absolute;width:min(600px,94%);height:min(62vh,560px);max-height:none;box-shadow:0 34px 80px -30px rgba(0,0,0,.6)}
 .dsm-dragHandle{cursor:grab;user-select:none}
 .dsm-dragHandle:active{cursor:grabbing}
 .dsm-viewerEdit{padding:10px 12px}
@@ -3741,7 +3741,7 @@ window.__ModuleLoader__.load({
                 h('textarea', {
                   ref: inputRef,
                   className: 'dsm-viewerInput',
-                  style: { flex: '1 1 0%', width: '100%', height: 'auto', minHeight: '0', resize: 'none', boxSizing: 'border-box' },
+                  style: { flex: '1 1 auto', width: '100%', height: '100%', minHeight: '0', resize: 'none', boxSizing: 'border-box', display: 'block' },
                   value: draft,
                   'aria-label': t('view.edit'),
                   onChange: (event) => {
