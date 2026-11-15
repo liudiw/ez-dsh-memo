@@ -158,12 +158,18 @@ window.__ModuleLoader__.load({
       'quick.pickCategory': '分类',
       'quick.pickCategoryHint': '分类（Alt+C）',
       'drawer.resize': '拖动调整宽度',
+      'select.enter': '批量选择',
+      'select.exit': '退出批量',
+      'select.delete': '删除',
       'drawer.pinned': '置顶',
       'drawer.today': '今日',
       'drawer.week': '本周',
       'drawer.month': '本月',
       'drawer.past': '历史',
       'drawer.resize': 'Drag to resize',
+      'select.enter': 'Select',
+      'select.exit': 'Exit select',
+      'select.delete': 'Delete',
       'drawer.pinned': 'Pinned',
       'drawer.today': 'Today',
       'drawer.week': 'This week',
@@ -586,6 +592,9 @@ window.__ModuleLoader__.load({
 .dsm-noteInput:focus{border-color:var(--dsw-alias-brand-primary)}
 .dsm-noteFoot{flex:0 0 auto;display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-top:8px;padding-top:6px;border-top:1px dashed color-mix(in srgb,var(--dsm-accent) 30%,transparent)}
 .dsm-pinMark{display:inline-flex;align-items:center;color:var(--dsw-alias-label-secondary)}
+.dsm-selectMark{position:absolute;top:6px;right:6px;width:18px;height:18px;border-radius:5px;border:1.5px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base);display:flex;align-items:center;justify-content:center;color:#fff;z-index:3}
+.dsm-selectMark[data-on='true']{background:var(--dsw-alias-brand-primary);border-color:var(--dsw-alias-brand-primary)}
+.dsm-btnDanger{color:#fff;background:#e5484d;border-color:#e5484d}
 .dsm-noteStamp{flex:0 0 auto;font-size:10.5px;line-height:1.4;color:var(--dsw-alias-label-secondary);opacity:.85;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dsm-time{font-size:11px;color:var(--dsw-alias-label-secondary);white-space:nowrap}
 .dsm-noteActions{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;column-gap:1px;row-gap:2px;margin-left:auto;opacity:0;min-width:0;transition:opacity .14s}
@@ -4907,7 +4916,15 @@ window.__ModuleLoader__.load({
           'data-pinned': note.pinned ? 'true' : undefined,
           'data-resizing': resizing ? 'true' : undefined,
           'data-dragging': props.dragging ? 'true' : undefined,
-          onPointerDown: (event) => props.onDragPointerDown(note.id, event, false),
+          onPointerDown: (event) => {
+            if (props.selectMode) {
+              event.preventDefault();
+              event.stopPropagation();
+              if (props.onToggleSelect) props.onToggleSelect();
+              return;
+            }
+            props.onDragPointerDown(note.id, event, false);
+          },
           onDragStart: (event) => event.preventDefault(),
           style: {
             '--dsm-accent': ACCENTS[note.color] || ACCENTS[DEFAULT_COLOR],
@@ -4919,6 +4936,10 @@ window.__ModuleLoader__.load({
             height: `${Math.round(height)}px`,
           },
         },
+          props.selectMode
+            ? h('span', { className: 'dsm-selectMark', 'data-on': props.selected ? 'true' : undefined },
+              props.selected ? h(Icon, { name: 'check', size: 12 }) : null)
+            : null,
           h('div', { className: 'dsm-noteStamp', title: fullTime(note.createdAt, language) }, stampLabel),
           editing
             ? h('div', { className: 'dsm-editWrap' },
@@ -5110,6 +5131,8 @@ window.__ModuleLoader__.load({
         const rootRef = useRef(null);
         const [editId, setEditId] = useState(null);
         const [onlyRemind, setOnlyRemind] = useState(false);
+        const [selectMode, setSelectMode] = useState(false);
+        const [selected, setSelected] = useState([]);
         const [skin, setSkin] = useState(() => readSkin());
         const [onlyImage, setOnlyImage] = useState(false);
         const [recentOnly, setRecentOnly] = useState(false);
@@ -5986,6 +6009,11 @@ window.__ModuleLoader__.load({
                 key: note.id,
                 note,
                 packed: spot,
+                selectMode,
+                selected: selected.indexOf(note.id) >= 0,
+                onToggleSelect: () => setSelected((current) => (current.indexOf(note.id) >= 0
+                  ? current.filter((id) => id !== note.id)
+                  : current.concat(note.id))),
                 now: nowTick,
                 busy,
                 language,
@@ -6092,6 +6120,31 @@ window.__ModuleLoader__.load({
                       'aria-label': t('search.placeholder'),
                       onChange: (event) => setQuery(event.target.value),
                     })),
+                  h('button', {
+                    type: 'button',
+                    className: 'dsm-iconBtn',
+                    title: selectMode ? t('select.exit') : t('select.enter'),
+                    'aria-label': selectMode ? t('select.exit') : t('select.enter'),
+                    'data-on': selectMode ? 'true' : undefined,
+                    onClick: () => {
+                      setSelectMode((current) => !current);
+                      setSelected([]);
+                    },
+                  }, h(Icon, { name: 'check', size: 14 })),
+                  selectMode
+                    ? h('button', {
+                      type: 'button',
+                      className: 'dsm-btn dsm-btnDanger',
+                      disabled: selected.length === 0,
+                      onClick: async () => {
+                        for (const id of selected) {
+                          await mutate('remove', { id });
+                        }
+                        setSelected([]);
+                        setSelectMode(false);
+                      },
+                    }, `${t('select.delete')} (${selected.length})`)
+                    : null,
                   h('button', {
                     type: 'button',
                     className: 'dsm-iconBtn dsm-trashBtn',
