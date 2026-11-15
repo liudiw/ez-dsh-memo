@@ -715,6 +715,8 @@ window.__ModuleLoader__.load({
 .dsm-wikiEmpty{padding:8px;font-size:12px;color:var(--dsw-alias-label-secondary)}
 /* 全文查看弹窗 */
 .dsm-viewer{position:absolute;inset:0;z-index:55;display:flex;align-items:center;justify-content:center;padding:24px 16px;background:color-mix(in srgb,var(--dsw-alias-label-primary) 26%,transparent)}
+.dsm-viewerCard[data-active='true']{border-color:color-mix(in srgb,var(--dsw-alias-brand-primary) 60%,var(--dsw-alias-border-l1));box-shadow:0 34px 80px -30px rgba(0,0,0,.6),0 0 0 1px color-mix(in srgb,var(--dsw-alias-brand-primary) 35%,transparent)}
+.dsm-viewerCard[data-active='true'] .dsm-viewerTitle{font-weight:600;color:var(--dsw-alias-brand-primary)}
 .dsm-viewerCard{pointer-events:auto;resize:both;overflow:hidden;min-width:340px;min-height:220px;box-sizing:border-box;display:flex;flex-direction:column;width:min(720px,100%);max-height:100%;border-radius:14px;background:var(--dsw-alias-bg-base);border:1px solid var(--dsw-alias-border-l1);box-shadow:0 30px 70px -30px rgba(0,0,0,.55);overflow:hidden}
 .dsm-viewerHead{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--dsw-alias-border-l1);background:color-mix(in srgb,var(--dsm-viewAccent,#888) 10%,transparent)}
 .dsm-viewerDot{width:9px;height:9px;border-radius:50%;flex:none;background:var(--dsm-viewAccent,#888)}
@@ -1995,7 +1997,7 @@ window.__ModuleLoader__.load({
               note: target,
               x: entry.x || 40 + (index + 1) * 56,
               y: entry.y || 56 + (index + 1) * 46,
-              z: 2147482001 + index,
+              z: activeCard === `deep-${index}` ? 2147482600 : 2147482001 + index,
               isActive: activeCard === `deep-${index}`,
               onActivate: () => setActiveCard(`deep-${index}`),
               language: 'zh',
@@ -2037,7 +2039,7 @@ window.__ModuleLoader__.load({
               note: notes.find((item) => item.id === view.id) || view,
               x: drag ? drag.x : 24,
               y: drag ? drag.y : 56,
-              z: 2147482000,
+              z: activeCard === 'main' ? 2147482600 : 2147482000,
               language: 'zh',
               categories,
               allNotes: notes,
@@ -3901,6 +3903,7 @@ window.__ModuleLoader__.load({
 
         return h('div', {
           className: 'dsm-viewerCard dsm-viewerFloat',
+          'data-active': props.isActive === false ? undefined : 'true',
           role: 'dialog',
           'aria-label': t('view.title'),
           style: {
@@ -5879,6 +5882,13 @@ window.__ModuleLoader__.load({
         const closeViewer = useCallback((index) => {
           setViewers((current) => current.filter((unused, position) => position !== index));
         }, []);
+        const raiseViewer = useCallback((index) => {
+          setViewers((current) => {
+            if (index < 0 || index >= current.length - 1) return current;
+            const item = current[index];
+            return current.filter((unused, position) => position !== index).concat([item]);
+          });
+        }, []);
         const moveViewer = useCallback((index, x, y) => {
           setViewers((current) => current.map((item, position) => (
             position === index
@@ -6538,6 +6548,7 @@ window.__ModuleLoader__.load({
                   key: `${entry.id}-${index}`,
                   t,
                   isActive: isTop,
+                  onActivate: () => raiseViewer(index),
                   note,
                   x: entry.x,
                   y: entry.y,
