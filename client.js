@@ -161,6 +161,7 @@ window.__ModuleLoader__.load({
       'select.enter': '批量选择',
       'select.exit': '退出批量',
       'select.delete': '删除',
+      'select.archive': '归档',
       'drawer.pinned': '置顶',
       'drawer.today': '今日',
       'drawer.week': '本周',
@@ -170,6 +171,7 @@ window.__ModuleLoader__.load({
       'select.enter': 'Select',
       'select.exit': 'Exit select',
       'select.delete': 'Delete',
+      'select.archive': 'Archive',
       'drawer.pinned': 'Pinned',
       'drawer.today': 'Today',
       'drawer.week': 'This week',
@@ -595,6 +597,9 @@ window.__ModuleLoader__.load({
 .dsm-selectMark{position:absolute;top:6px;right:6px;width:18px;height:18px;border-radius:5px;border:1.5px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base);display:flex;align-items:center;justify-content:center;color:#fff;z-index:3}
 .dsm-selectMark[data-on='true']{background:var(--dsw-alias-brand-primary);border-color:var(--dsw-alias-brand-primary)}
 .dsm-btnDanger{color:#fff;background:#e5484d;border-color:#e5484d}
+.dsm-note[data-select='true'] .dsm-noteActions,
+.dsm-note[data-select='true'] .dsm-resize{display:none}
+.dsm-note[data-select='true']{cursor:pointer}
 .dsm-noteStamp{flex:0 0 auto;font-size:10.5px;line-height:1.4;color:var(--dsw-alias-label-secondary);opacity:.85;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dsm-time{font-size:11px;color:var(--dsw-alias-label-secondary);white-space:nowrap}
 .dsm-noteActions{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;column-gap:1px;row-gap:2px;margin-left:auto;opacity:0;min-width:0;transition:opacity .14s}
@@ -4915,6 +4920,7 @@ window.__ModuleLoader__.load({
           'data-ghost': props.ghost ? 'true' : undefined,
           'data-pinned': note.pinned ? 'true' : undefined,
           'data-resizing': resizing ? 'true' : undefined,
+          'data-select': props.selectMode ? 'true' : undefined,
           'data-dragging': props.dragging ? 'true' : undefined,
           onPointerDown: (event) => {
             if (props.selectMode) {
@@ -6131,6 +6137,20 @@ window.__ModuleLoader__.load({
                       setSelected([]);
                     },
                   }, h(Icon, { name: 'check', size: 14 })),
+                  selectMode
+                    ? h('button', {
+                      type: 'button',
+                      className: 'dsm-btn',
+                      disabled: selected.length === 0,
+                      onClick: async () => {
+                        for (const id of selected) {
+                          await mutate('archive', { id, archived: true });
+                        }
+                        setSelected([]);
+                        setSelectMode(false);
+                      },
+                    }, `${t('select.archive')} (${selected.length})`)
+                    : null,
                   selectMode
                     ? h('button', {
                       type: 'button',
