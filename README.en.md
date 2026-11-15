@@ -2,6 +2,8 @@
 
 中文 · [English](README.en.md)
 
+![the wall](docs/wall.png)
+
 A sticky-note wall for **[DeepSeek Harness](https://github.com/deepseek-ai)** — jot ideas in one keystroke, organize with categories, set reminders, link notes wiki-style, and optionally mirror everything to a [fast-note-sync](https://github.com/) Obsidian vault as Markdown.
 
 > Screenshots: coming soon.
@@ -71,6 +73,18 @@ Examples: *“把墙上关于项目 A 的便签归类到「工作」”*, *“�
 | Trash / archive / undo | **yes** | archive + auto-clear | — |
 | Skins | 5 accent colors | — | 9 skins |
 | AI read/write | **`memo` tool (list/add/update/remove)** | send to chat | read & write |
+
+## Wiki links between notes
+
+Write `[[another note]]` inside a note and click it to jump there.
+
+- Typing `[[` in a note's **edit mode** opens a suggestion list (`↑↓` choose, `Enter` insert, `Esc` cancel)
+- Alias form: `[[target note|label]]`
+- Rendered as a clickable link that opens the target in a **new floating card**, so you can follow a chain without losing the current one
+- Unknown targets fall back to plain text (no error)
+- Works in quick capture, the viewer and the inline editor
+
+![viewer](docs/viewer.png)
 
 ## Shortcuts
 
