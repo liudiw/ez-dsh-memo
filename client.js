@@ -2026,52 +2026,7 @@ window.__ModuleLoader__.load({
               onPrev: null,
               onNext: null,
             })
-            : null,
-            deep.map((entry, index) => h('div', {
-            key: `${entry.id}-${index}`,
-            className: 'dsm-floatCard',
-            style: {
-              '--dsm-viewAccent': ACCENTS[entry.color] || ACCENTS[DEFAULT_COLOR],
-              left: `${entry.x || 70 + (index + 1) * 26}px`,
-              top: `${entry.y || 130 + (index + 1) * 26}px`,
-            },
-          },
-            h('div', {
-              className: 'dsm-viewerHead dsm-dragHandle',
-              title: t('view.drag'),
-              onPointerDown: (event) => {
-                if (event.button !== undefined && event.button !== 0) return;
-                const origin = { x: event.clientX, y: event.clientY, left: entry.x || 0, top: entry.y || 0 };
-                const move = (moved) => {
-                  setDeep((current) => current.map((item, position) => (position === index
-                    ? {
-                      ...item,
-                      x: Math.max(4, Math.min(origin.left + (moved.clientX - origin.x), window.innerWidth - 220)),
-                      y: Math.max(4, Math.min(origin.top + (moved.clientY - origin.y), window.innerHeight - 60)),
-                    }
-                    : item)));
-                };
-                const stop = () => {
-                  window.removeEventListener('pointermove', move);
-                  window.removeEventListener('pointerup', stop);
-                };
-                window.addEventListener('pointermove', move);
-                window.addEventListener('pointerup', stop);
-                event.preventDefault();
-                event.stopPropagation();
-              },
-            },
-              h('span', { className: 'dsm-viewerDot' }),
-              h('span', { className: 'dsm-viewerTitle' }, noteTitleOf(entry) || entry.id.slice(0, 8)),
-              h('button', {
-                type: 'button',
-                className: 'dsm-iconBtn',
-                title: t('view.close'),
-                'aria-label': t('view.close'),
-                onClick: () => setDeep((current) => current.filter((item) => item.id !== entry.id)),
-              }, h(Icon, { name: 'close', size: 14 }))),
-            h('div', { className: 'dsm-viewerBody' },
-              h('div', { className: 'dsm-noteText' }, renderMdBlocks(parseMarkdownBlocks(entry.text), 'deep'))))));
+            : null);
       };
     }
 
