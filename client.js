@@ -5505,12 +5505,22 @@ window.__ModuleLoader__.load({
           return () => observer.disconnect();
         }, []);
 
+        /** 可用宽度：内层宽度减去左右 padding（卡片按内容区排版，否则右列会被裁掉）。 */
+        const measureWall = () => {
+          const node = innerRef.current;
+          if (!node) return 0;
+          const style = typeof window !== 'undefined' && window.getComputedStyle ? window.getComputedStyle(node) : null;
+          const padLeft = style ? parseFloat(style.paddingLeft) || 0 : 0;
+          const padRight = style ? parseFloat(style.paddingRight) || 0 : 0;
+          return Math.max(0, Math.round(node.clientWidth - padLeft - padRight));
+        };
+
         /** 兜底：窗口缩放时重新测量墙宽（与节点是否已挂载无关）。 */
         useEffect(() => {
           const measure = () => {
             const node = innerRef.current;
             if (!node) return;
-            const next = Math.round(node.clientWidth || 0);
+            const next = measureWall();
             if (next > 60) setWallWidth((previous) => (Math.abs(previous - next) > 1 ? next : previous));
           };
           measure();
@@ -5540,12 +5550,12 @@ window.__ModuleLoader__.load({
               for (const entry of entries) apply(entry.contentRect.width);
             });
             observer.observe(node);
-            apply(node.clientWidth);
+            apply(measureWall());
           };
           attach();
           // 兜底：窗口缩放/侧栏变化时重新测量（ResizeObserver 在节点重挂时可能失效）
           const onResize = () => {
-            if (innerRef.current) apply(innerRef.current.clientWidth);
+            if (innerRef.current) apply(measureWall());
           };
           window.addEventListener('resize', onResize);
           return () => {
@@ -5816,7 +5826,7 @@ window.__ModuleLoader__.load({
           if (!wallWidth) return { positions: new Map(), height: 0 };
           // 拖拽改尺寸期间冻结排版：否则每移动 1px 整墙都在重排，手感会糊
           if (resizeActive) return frozenLayoutRef.current;
-          const live = innerRef.current && innerRef.current.clientWidth;
+          const live = measureWall();
           const width = live && live > 60 ? live : wallWidth;
           if (window.__DSM_MEMO_DEBUG__) console.warn('[dsh-memo] layout', { live, wallWidth, notes: display.length });
           const packed = packNotes(display, width, 14);
@@ -5953,12 +5963,12 @@ window.__ModuleLoader__.load({
               : null);
         }
 
-        const renderMetrics = packMetrics((innerRef.current && innerRef.current.clientWidth) || wallWidth || 0);
+        const renderMetrics = packMetrics(measureWall() || wallWidth || 0);
 
         return h('div', {
           className: 'dsm-root',
           ref: rootRef,
-          'data-debug': `w=${Math.round(wallWidth)} live=${Math.round((innerRef.current && innerRef.current.clientWidth) || 0)} n=${display.length} cols=${renderMetrics.count} cell=${Math.round(renderMetrics.cell)} layoutCols=${layout.cols || 0}`,
+          'data-debug': `w=${Math.round(wallWidth)} live=${Math.round(measureWall())} n=${display.length} cols=${renderMetrics.count} cell=${Math.round(renderMetrics.cell)} layoutCols=${layout.cols || 0}`,
         },
           h('div', { className: 'dsm-scroll' },
             h('div', { className: 'dsm-inner', ref: innerRef },
