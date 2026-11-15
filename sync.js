@@ -348,6 +348,7 @@ export function createSyncEngine(options) {
     // 冲突副本单轮上限：逻辑上不该出现大量冲突，这里是防跑飞的保险丝。
     const MAX_CONFLICT_COPIES = 5
     let conflictCopies = 0
+    let catalogChanged = false
     const conflictTexts = new Set(notes.filter((note) => note.syncConflict).map((note) => note.text))
     async function keepConflictCopy(payload) {
       const text = String(payload?.text || '').trim()
@@ -381,6 +382,7 @@ export function createSyncEngine(options) {
       if (existing !== catalogBody) {
         await client.notePut(catalogPath, catalogBody)
         await store.writeCatalogHash?.(catalogBody)
+        catalogChanged = true;   // 分类名/顺序变了，带分类的便签需要重写 frontmatter
       }
     } catch (error) {
       // 目录同步失败不影响便签本体
@@ -399,7 +401,14 @@ export function createSyncEngine(options) {
         const parsedCatalog = parseCatalog(typeof body === 'string' ? body : body?.content || '')
         const known = new Set((categories || []).map((item) => String(item.name || '').toLowerCase()))
         for (const entry of parsedCatalog) {
-          if (known.has(entry.name.toLowerCase())) continue
+          if (known.has(entry.name.toLowerCase())) {
+            // 已有的分类：尝试把颜色/顺序对齐远端（接口不支持就忽略）
+            const local = (categories || []).find((item) => String(item.name).toLowerCase() === entry.name.toLowerCase())
+            if (local && (entry.color || entry.order !== undefined)) {
+              try { await store.categoryUpdate({ id: local.id, name: local.name, color: entry.color, order: entry.order }) } catch (error) { /* 忽略 */ }
+            }
+            continue
+          }
           try {
             await store.categoryAdd({ name: entry.name })
             known.add(entry.name.toLowerCase())
@@ -420,6 +429,13 @@ export function createSyncEngine(options) {
       if (!remote) {
         // 新便签：才需要按正文生成文件名。
         await pushNote(note)
+        stats.pushed += 1
+        continue
+      }
+
+      if (catalogChanged && (note.categoryIds || []).length && remote.path) {
+        // 分类目录变了：把这张便签的 frontmatter 重写一遍（改名/顺序传播）
+        await pushNote(note, remote.path)
         stats.pushed += 1
         continue
       }

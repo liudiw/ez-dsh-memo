@@ -22,6 +22,26 @@ const SYNC_FILE = join(homedir(), '.dsh', 'dsh-memo', 'sync.json')
 const MAX_TEXT = 4000
 const PWA_ROUTE = '/dsh-memo'
 const PWA_ICON_DIR = join(dirname(fileURLToPath(import.meta.url)), 'icons')
+const CATALOG_HASH_FILE = join(homedir(), '.dsh', 'dsh-memo', '.catalog-hash')
+
+/** 分类目录文件的哈希：变了就把所有带分类的便签重新推一遍（改名传播）。 */
+async function readCatalogHash() {
+  try {
+    return await readFile(CATALOG_HASH_FILE, 'utf8')
+  } catch (error) {
+    return null
+  }
+}
+
+async function writeCatalogHash(body) {
+  try {
+    await mkdir(dirname(CATALOG_HASH_FILE), { recursive: true })
+    await writeFile(CATALOG_HASH_FILE, String(body || ''), { mode: 0o600 })
+  } catch (error) {
+    /* 忽略 */
+  }
+}
+
 const SYNC_MASK = (token) => (token ? `••••••${String(token).slice(-4)}` : '')
 
 /** 读 sync.json（不存在就返回空对象）。 */
@@ -868,6 +888,8 @@ function createStore(file, warn) {
       })
     },
     /** 新建分类（同名直接复用，方便重复点击）。 */
+    readCatalogHash,
+    writeCatalogHash,
     categoryAdd(args) {
       return exclusive(async () => {
         const current = await load()
