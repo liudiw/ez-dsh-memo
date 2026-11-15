@@ -1622,6 +1622,7 @@ window.__ModuleLoader__.load({
       return function MemoDrawer() {
         const [open, setOpen] = useState(false);
         const [closing, setClosing] = useState(false);
+        const searchRef = useRef(null);
         const [query, setQuery] = useState('');
         const [notes, setNotes] = useState([]);
         const [view, setView] = useState(null);
@@ -1735,7 +1736,8 @@ window.__ModuleLoader__.load({
             if (key !== 'arrowdown' && key !== 'arrowup' && key !== 'enter') return;
             const node = typeof document !== 'undefined' ? document.activeElement : null;
             const tag = node && node.tagName ? String(node.tagName).toUpperCase() : '';
-            if (tag === 'INPUT' || tag === 'TEXTAREA') return;   // 搜索框里保留原生编辑
+            const inSearch = searchRef.current && node === searchRef.current;
+            if (!inSearch && (tag === 'INPUT' || tag === 'TEXTAREA')) return;   // 其它输入控件保留原生行为
             const needleNow = String(query || '').trim().toLowerCase();
             const ordered = notes
               .slice()
@@ -1871,6 +1873,7 @@ window.__ModuleLoader__.load({
               },
             }, h(Icon, { name: 'close', size: 13 }))),
           h('input', {
+            ref: searchRef,
             className: 'dsm-drawerSearch',
             value: query,
             placeholder: t('search'),
