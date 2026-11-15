@@ -688,7 +688,7 @@ window.__ModuleLoader__.load({
 .dsm-dragHandle{cursor:grab;user-select:none}
 .dsm-dragHandle:active{cursor:grabbing}
 .dsm-viewerEdit{padding:10px 12px}
-.dsm-viewerInput{box-sizing:border-box;display:block;width:100%;min-height:260px;resize:vertical;font:inherit;font-size:14px;line-height:1.7;padding:10px 12px;border-radius:10px;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);color:inherit;outline:none}
+.dsm-viewerInput{flex:1 1 auto;width:100%;height:auto;min-height:120px;box-sizing:border-box;resize:none;box-sizing:border-box;display:block;width:100%;min-height:260px;resize:vertical;font:inherit;font-size:14px;line-height:1.7;padding:10px 12px;border-radius:10px;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);color:inherit;outline:none}
 .dsm-viewerInput:focus{border-color:var(--dsw-alias-brand-primary)}
 .dsm-viewerBody{flex:1 1 auto;min-height:0;overflow-y:auto;padding:16px 18px 20px;font-size:14px;line-height:1.72}
 .dsm-viewerBody .dsm-noteText{font-size:14px}
@@ -1818,7 +1818,7 @@ window.__ModuleLoader__.load({
               note: view,
               x: drag ? drag.x : 48,
               y: drag ? drag.y : 90,
-              language,
+              language: 'zh',
               categories,
               allNotes: notes,
               onMove: (x, y) => setDrag({ x, y }),
@@ -1826,6 +1826,7 @@ window.__ModuleLoader__.load({
                 const target = notes.find((item) => item.id === targetId);
                 if (target) setView(target);
               },
+              highlight: '',
               onClose: () => setView(null),
               onSave: (text) => {
                 apiCall('update', { id: view.id, text })
@@ -1833,6 +1834,16 @@ window.__ModuleLoader__.load({
                   .catch(() => {});
                 setView(null);
               },
+              onUpdate: (id, patch) => {
+                apiCall('update', Object.assign({ id }, patch || {}))
+                  .then(() => refresh())
+                  .catch(() => {});
+              },
+              onToggleTask: () => {},
+              onImageClick: () => {},
+              onEdit: () => {},
+              onPrev: null,
+              onNext: null,
             })
             : null,
             deep.map((entry, index) => h('div', {
