@@ -2340,6 +2340,28 @@ window.__ModuleLoader__.load({
     }
 
     /** 会话消息尾部/操作条的「收进便签」按钮：从 DOM 取该条消息的渲染文本。 */
+    /** [[ 候选浮层：直接挂 body，固定定位在输入框下方，不受容器 overflow 影响。 */
+    function showWikiPop(items, rect, onPick) {
+      const el = document.createElement('div');
+      el.setAttribute('style', 'position:fixed;z-index:2147483400;left:' + Math.round(rect.left) + 'px;top:'
+        + Math.round(rect.bottom + 6) + 'px;width:' + Math.round(Math.min(Math.max(rect.width, 240), 460)) + 'px;'
+        + 'max-height:240px;overflow-y:auto;padding:5px;display:flex;flex-direction:column;gap:2px;'
+        + 'background:var(--dsw-alias-bg-base,#fff);border:1px solid var(--dsw-alias-border-l1,#ddd);'
+        + 'border-radius:10px;box-shadow:0 18px 40px -18px rgba(0,0,0,.45)');
+      items.forEach((item) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = item.label;
+        button.setAttribute('style', 'display:block;width:100%;text-align:left;font:inherit;font-size:12.5px;'
+          + 'padding:6px 8px;border:none;border-radius:6px;background:transparent;cursor:pointer;'
+          + 'color:var(--dsw-alias-label-primary,#222);overflow:hidden;text-overflow:ellipsis;white-space:nowrap');
+        button.onmousedown = (event) => { event.preventDefault(); onPick(item.note); };
+        el.appendChild(button);
+      });
+      document.body.appendChild(el);
+      return () => { try { el.remove(); } catch (error) { /* 忽略 */ } };
+    }
+
     /** 悬浮 tooltip：挂到 body 上，黑底白字，显示在目标下方（不会被容器裁切）。 */
     function showTip(text, target) {
       try {
@@ -2735,6 +2757,26 @@ window.__ModuleLoader__.load({
           setFlash('');
           loadRecent();
         }, [loadRecent, open]);
+
+        useEffect(() => {
+          if (!wiki || !open) return undefined;
+          const node = areaRef.current;
+          if (!node || !node.getBoundingClientRect) return undefined;
+          const rect = node.getBoundingClientRect();
+          const path = String(wiki.query || '').trim().toLowerCase();
+          const items = allNotes
+            .filter((item) => (!path ? true : String(item.text || '').toLowerCase().indexOf(path) >= 0))
+            .slice(0, 40)
+            .map((item) => ({ note: item, label: noteTitleOf(item) || item.id.slice(0, 8) }));
+          if (!items.length) return undefined;
+          return showWikiPop(items, rect, (picked) => {
+            const title = noteTitleOf(picked) || picked.id.slice(0, 8);
+            const next = applyWikiLink(draft, wiki.start, title);
+            setDraft(next.text);
+            setWiki(null);
+            setWikiIndex(0);
+          });
+        }, [wiki, open, allNotes, draft]);
 
         const hide = useCallback(() => {
           setOpen(false);
@@ -3190,20 +3232,7 @@ window.__ModuleLoader__.load({
                 }
               },
             }),
-            wiki
-              ? h('div', { className: 'dsm-wikiInline' }, h(WikiSuggest, {
-                notes: allNotes,
-                query: wiki.query,
-                index: wikiIndex,
-                onPick: (picked) => {
-                  const title = noteTitleOf(picked) || picked.id.slice(0, 8);
-                  const next = applyWikiLink(draft, wiki.start, title);
-                  setDraft(next.text);
-                  setWiki(null);
-                  setWikiIndex(0);
-                },
-              }))
-              : null,
+
             h('div', { className: 'dsm-quickCats' },
               h('div', { className: 'dsm-paletteWrap' },
                 h('button', {
@@ -3825,6 +3854,21 @@ window.__ModuleLoader__.load({
             .slice(0, 8);
         }, [wiki, props.allNotes, note.id]);
 
+        useEffect(() => {
+          if (!wiki || !editing) return undefined;
+          const node = inputRef.current;
+          if (!node || !node.getBoundingClientRect) return undefined;
+          const rect = node.getBoundingClientRect();
+          const items = (props.allNotes || [])
+            .filter((item) => (!String(wiki.query || '').trim()
+              ? true
+              : String(item.text || '').toLowerCase().indexOf(String(wiki.query).trim().toLowerCase()) >= 0))
+            .slice(0, 40)
+            .map((item) => ({ note: item, label: noteTitleOf(item) || item.id.slice(0, 8) }));
+          if (!items.length) return undefined;
+          return showWikiPop(items, rect, (picked) => pickWiki(picked));
+        }, [wiki, editing, props.allNotes]);
+
         const pickWiki = (target) => {
           if (!wiki) return;
           const title = noteTitleOf(target) || target.id.slice(0, 8);
@@ -3998,9 +4042,7 @@ window.__ModuleLoader__.load({
                     }
                   },
                 }),
-                wiki
-                  ? h(WikiSuggest, { notes: props.allNotes || [], query: wiki.query, index: wikiIndex, onPick: pickWiki })
-                  : null)
+                )
               : h('div', { className: 'dsm-viewerBody' },
               h('div', { className: 'dsm-noteText' }, withWikiContext(
                 { notes: props.allNotes || [], onOpen: props.onOpenWiki },
