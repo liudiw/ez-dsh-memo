@@ -5562,7 +5562,7 @@ window.__ModuleLoader__.load({
         const openView = useCallback((id) => {
           // 临时诊断：中文方括号会意外打开查看窗，先记录调用来源
           try {
-            console.debug('[dsh-memo] openView', id, new Error('trace').stack);
+            console.warn('[dsh-memo] openView', id, new Error('trace').stack);
           } catch (error) {
             /* 忽略 */
           }
