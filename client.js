@@ -146,7 +146,7 @@ window.__ModuleLoader__.load({
       'set.errApi': '服务地址要以 http:// 或 https:// 开头',
       'set.errVault': 'Vault 名称不能为空',
       'set.tip': '便签始终保存在本机 ~/.dsh/dsh-memo/notes.json，同步只是把它镜像成 Markdown。',
-      'capture.button': '收进便签',
+      'capture.button': '保存便签',
       'capture.collect': '收集本轮',
       'capture.button': 'Save to notes',
       'capture.collect': 'Collect turn',
@@ -380,6 +380,11 @@ window.__ModuleLoader__.load({
 .dsm-root[data-skin='warm']{--dsm-skin-bg:linear-gradient(180deg,#fff8f1,#ffefe3)}
 .dsm-collectBtnUnused{font:inherit;font-size:11.5px;padding:2px 8px;border-radius:999px;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-secondary);cursor:pointer;opacity:.8}
 .dsm-collectBtn:hover{opacity:1;color:var(--dsw-alias-brand-primary)}
+.dsm-tip{position:relative}
+.dsm-tip:hover::after{content:attr(data-tip);position:absolute;left:50%;bottom:calc(100% + 6px);transform:translateX(-50%);white-space:nowrap;background:#1b1b1f;color:#fff;font-size:12.5px;line-height:1;padding:6px 9px;border-radius:7px;pointer-events:none;z-index:2147483000;box-shadow:0 8px 20px -8px rgba(0,0,0,.5)}
+.dsm-confirmFloat{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2147482800;width:min(360px,86vw);padding:14px 16px;border-radius:14px;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base);box-shadow:0 26px 60px -26px rgba(0,0,0,.55);pointer-events:auto}
+.dsm-confirmText{font-size:13px;line-height:1.6;color:var(--dsw-alias-label-primary);margin-bottom:12px}
+.dsm-confirmActions{display:flex;gap:8px;justify-content:flex-end}
 .dsm-captureGroup{display:inline-flex;align-items:center;gap:2px}
 .dsm-mention{position:fixed;z-index:2147482300;width:min(340px,70vw);max-height:240px;overflow-y:auto;padding:5px;border-radius:10px;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base);box-shadow:0 18px 40px -18px rgba(0,0,0,.45)}
 .dsm-mentionItem{display:block;width:100%;text-align:left;font:inherit;font-size:12.5px;padding:5px 8px;border:none;border-radius:6px;background:transparent;color:var(--dsw-alias-label-primary);cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -610,7 +615,8 @@ window.__ModuleLoader__.load({
 .dsm-quickBtn{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;padding:0;border:none;border-radius:7px;background:transparent;color:var(--dsw-alias-label-secondary);cursor:pointer}
 .dsm-quickBtn:hover{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary)}
 .dsm-quickHost{position:fixed;inset:0;z-index:2147482000;pointer-events:none}
-.dsm-quickSel{position:fixed;transform:translate(2px,4px);pointer-events:auto;display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 9px;border-radius:999px;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font:inherit;font-size:11.5px;box-shadow:0 8px 20px -8px rgba(0,0,0,.4);cursor:pointer}
+.dsm-quickSel{position:fixed;transform:translate(2px,6px);pointer-events:auto;display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 14px;border-radius:999px;border:none;background:var(--dsw-alias-brand-primary,#4c6ef5);color:#fff;font:inherit;font-size:13px;font-weight:600;letter-spacing:.2px;box-shadow:0 10px 26px -8px rgba(0,0,0,.5);cursor:pointer}
+.dsm-quickSel:hover{filter:brightness(1.06)}
 .dsm-quickSel:hover{background:var(--dsw-alias-bg-layer-1)}
 .dsm-quickRemind{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--dsw-alias-label-secondary)}
 .dsm-quickTime{font:inherit;font-size:12px;height:24px;padding:0 6px;border-radius:6px;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary)}
@@ -2357,9 +2363,9 @@ window.__ModuleLoader__.load({
         };
         return h('button', {
           type: 'button',
-          className: 'dsm-captureBtn',
-          title: t('capture.button'),
+          className: 'dsm-captureBtn dsm-tip',
           'aria-label': t('capture.button'),
+          'data-tip': t('capture.button'),
           'data-message-id': props && props.messageId ? props.messageId : undefined,
           onClick: collect,
         }, h(Icon, { name: 'pin', size: 16 }));
@@ -3062,6 +3068,14 @@ window.__ModuleLoader__.load({
                   () => renderMdBlocks(parseMarkdownBlocks(view.text), 'quick'),
                 ))))
             : null,
+          confirmClose
+            ? h('div', { className: 'dsm-confirmFloat', role: 'dialog', 'aria-label': t('quick.keepDraft') },
+              h('div', { className: 'dsm-confirmText' }, t('quick.keepDraft')),
+              h('div', { className: 'dsm-confirmActions' },
+                h('button', { type: 'button', className: 'dsm-btn dsm-btnPrimary', onClick: () => hide() }, t('quick.saveDraft')),
+                h('button', { type: 'button', className: 'dsm-btn', onClick: () => { resetAll(); hide(); } }, t('quick.discard')),
+                h('button', { type: 'button', className: 'dsm-btn', onClick: () => setConfirmClose(false) }, t('quick.cancel'))))
+            : null,
           open
             ? h('div', {
           className: 'dsm-quickLayer',
@@ -3089,13 +3103,6 @@ window.__ModuleLoader__.load({
                 'aria-label': t('view.close'),
                 onClick: requestClose,
               }, h(Icon, { name: 'close', size: 13 }))),
-            confirmClose
-              ? h('div', { className: 'dsm-quickConfirm' },
-                h('span', null, t('quick.keepDraft')),
-                h('button', { type: 'button', className: 'dsm-btn dsm-btnPrimary', onClick: () => hide() }, t('quick.saveDraft')),
-                h('button', { type: 'button', className: 'dsm-btn', onClick: () => { resetAll(); hide(); } }, t('quick.discard')),
-                h('button', { type: 'button', className: 'dsm-btn', onClick: () => setConfirmClose(false) }, t('quick.cancel')))
-              : null,
             h('textarea', {
               ref: areaRef,
               className: 'dsm-quickInput',
