@@ -2340,7 +2340,7 @@ window.__ModuleLoader__.load({
     }
 
     /** 会话消息尾部/操作条的「收进便签」按钮：从 DOM 取该条消息的渲染文本。 */
-    /** [[ 候选浮层：直接挂 body，固定定位在输入框下方，不受容器 overflow 影响。 */
+    /** [[ 候选浮层：直接挂 body，固定定位在输入框下方，支持高亮跟随。 */
     function showWikiPop(items, rect, onPick) {
       const el = document.createElement('div');
       el.setAttribute('style', 'position:fixed;z-index:2147483400;left:' + Math.round(rect.left) + 'px;top:'
@@ -2348,18 +2348,31 @@ window.__ModuleLoader__.load({
         + 'max-height:240px;overflow-y:auto;padding:5px;display:flex;flex-direction:column;gap:2px;'
         + 'background:var(--dsw-alias-bg-base,#fff);border:1px solid var(--dsw-alias-border-l1,#ddd);'
         + 'border-radius:10px;box-shadow:0 18px 40px -18px rgba(0,0,0,.45)');
-      items.forEach((item) => {
+      const buttons = items.map((item) => {
         const button = document.createElement('button');
         button.type = 'button';
         button.textContent = item.label;
-        button.setAttribute('style', 'display:block;width:100%;text-align:left;font:inherit;font-size:12.5px;'
-          + 'padding:6px 8px;border:none;border-radius:6px;background:transparent;cursor:pointer;'
-          + 'color:var(--dsw-alias-label-primary,#222);overflow:hidden;text-overflow:ellipsis;white-space:nowrap');
+        button.setAttribute('style', 'display:block;width:100%;text-align:left;font-family:inherit;'
+          + 'font-size:12.5px;line-height:1.45;height:auto;min-height:0;padding:6px 8px;border:none;'
+          + 'border-radius:6px;background:transparent;cursor:pointer;white-space:nowrap;overflow:hidden;'
+          + 'text-overflow:ellipsis;color:var(--dsw-alias-label-primary,#222)');
         button.onmousedown = (event) => { event.preventDefault(); onPick(item.note); };
         el.appendChild(button);
+        return button;
       });
       document.body.appendChild(el);
-      return () => { try { el.remove(); } catch (error) { /* 忽略 */ } };
+      const setActive = (index) => {
+        buttons.forEach((button, position) => {
+          button.style.background = position === index
+            ? 'color-mix(in srgb, var(--dsw-alias-brand-primary,#4c6ef5) 16%, transparent)'
+            : 'transparent';
+        });
+      };
+      setActive(0);
+      return {
+        remove: () => { try { el.remove(); } catch (error) { /* 忽略 */ } },
+        setActive,
+      };
     }
 
     /** 悬浮 tooltip：挂到 body 上，黑底白字，显示在目标下方（不会被容器裁切）。 */
@@ -2758,7 +2771,10 @@ window.__ModuleLoader__.load({
           loadRecent();
         }, [loadRecent, open]);
 
+        const wikiPopRef = useRef(null);
+
         useEffect(() => {
+          if (wikiPopRef.current) { wikiPopRef.current.remove(); wikiPopRef.current = null; }
           if (!wiki || !open) return undefined;
           const node = areaRef.current;
           if (!node || !node.getBoundingClientRect) return undefined;
@@ -2769,14 +2785,21 @@ window.__ModuleLoader__.load({
             .slice(0, 40)
             .map((item) => ({ note: item, label: noteTitleOf(item) || item.id.slice(0, 8) }));
           if (!items.length) return undefined;
-          return showWikiPop(items, rect, (picked) => {
+          wikiPopRef.current = showWikiPop(items, rect, (picked) => {
             const title = noteTitleOf(picked) || picked.id.slice(0, 8);
             const next = applyWikiLink(draft, wiki.start, title);
             setDraft(next.text);
             setWiki(null);
             setWikiIndex(0);
           });
+          return () => {
+            if (wikiPopRef.current) { wikiPopRef.current.remove(); wikiPopRef.current = null; }
+          };
         }, [wiki, open, allNotes, draft]);
+
+        useEffect(() => {
+          if (wikiPopRef.current) wikiPopRef.current.setActive(wikiIndex);
+        }, [wikiIndex, wiki]);
 
         const hide = useCallback(() => {
           setOpen(false);
@@ -3854,7 +3877,10 @@ window.__ModuleLoader__.load({
             .slice(0, 8);
         }, [wiki, props.allNotes, note.id]);
 
+        const popRef = useRef(null);
+
         useEffect(() => {
+          if (popRef.current) { popRef.current.remove(); popRef.current = null; }
           if (!wiki || !editing) return undefined;
           const node = inputRef.current;
           if (!node || !node.getBoundingClientRect) return undefined;
@@ -3866,8 +3892,15 @@ window.__ModuleLoader__.load({
             .slice(0, 40)
             .map((item) => ({ note: item, label: noteTitleOf(item) || item.id.slice(0, 8) }));
           if (!items.length) return undefined;
-          return showWikiPop(items, rect, (picked) => pickWiki(picked));
+          popRef.current = showWikiPop(items, rect, (picked) => pickWiki(picked));
+          return () => {
+            if (popRef.current) { popRef.current.remove(); popRef.current = null; }
+          };
         }, [wiki, editing, props.allNotes]);
+
+        useEffect(() => {
+          if (popRef.current) popRef.current.setActive(wikiIndex);
+        }, [wikiIndex, wiki]);
 
         const pickWiki = (target) => {
           if (!wiki) return;
