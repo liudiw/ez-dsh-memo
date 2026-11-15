@@ -1990,8 +1990,8 @@ window.__ModuleLoader__.load({
             key: `${entry.id}-${index}`,
             t,
             note: notes.find((item) => item.id === entry.id) || entry,
-            x: entry.x || 36 + (index + 1) * 34,
-            y: entry.y || 56 + (index + 1) * 30,
+            x: entry.x || Math.max(24, Math.min(40 + (index + 1) * 56, (typeof window !== 'undefined' ? window.innerWidth : 1400) - 620)),
+            y: entry.y || 48 + (index + 1) * 48,
             z: 2147482000 + index + 1,
             language: 'zh',
             categories,
@@ -2001,10 +2001,7 @@ window.__ModuleLoader__.load({
             onMove: (x, y) => setDeep((current) => current.map((item, position) => (position === index ? { ...item, x, y } : item))),
             onOpenWiki: (targetId) => {
               const target = notes.find((item) => item.id === targetId);
-              if (target) setDeep((current) => current.concat([Object.assign({}, target, {
-                x: 120 + (current.length + 1) * 26,
-                y: 140 + (current.length + 1) * 26,
-              })]));
+              if (target) setDeep((current) => current.concat([target]));
             },
             onSave: (text) => {
               apiCall('update', { id: entry.id, text }).then(() => refresh()).catch(() => {});
