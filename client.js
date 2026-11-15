@@ -1190,9 +1190,14 @@ window.__ModuleLoader__.load({
     }
 
     /** 单张便签宽度：用户拖过的宽度也**不得超过当前列宽**（否则会重叠）。 */
-    function packWidthOf(note, cell) {
-      const base = noteWidthOf(note);
-      return Math.max(Math.min(base, cell), Math.min(MIN_PER_ROW_WIDTH, cell));
+    function packWidthOf(note, cell, maxWidth) {
+      const explicit = Number(note && note.width) > 0;
+      if (explicit) {
+        // 用户拖过的宽度优先采纳，但不能超过整墙可用宽度（否则会溢出/重叠）
+        const wanted = Number(note.width);
+        return Math.max(Math.min(wanted, maxWidth), MIN_PER_ROW_WIDTH);
+      }
+      return Math.max(cell, MIN_PER_ROW_WIDTH);
     }
 
     /**
@@ -1207,7 +1212,7 @@ window.__ModuleLoader__.load({
       const positions = new Map();
       const placed = [];
       for (const note of notes) {
-        const w = packWidthOf(note, metrics.cell);
+        const w = packWidthOf(note, metrics.cell, maxWidth);
         const h = noteHeightOf(note);
         let spot = null;
         const rows = [...new Set([0].concat(placed.map((rect) => rect.y + rect.h + gap)))].sort((a, b) => a - b);
