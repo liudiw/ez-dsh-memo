@@ -5515,7 +5515,7 @@ window.__ModuleLoader__.load({
           const timer = setInterval(() => {
             measure();
             setLayoutTick((current) => current + 1);   // 强制重排一次，确保宽度变化被采纳
-          }, 1200);
+          }, 400);
           return () => {
             window.removeEventListener('resize', measure);
             clearInterval(timer);
@@ -5524,24 +5524,30 @@ window.__ModuleLoader__.load({
 
         /** 观测内容宽度：便签是绝对定位的，必须知道可用宽度才能排版。 */
         useEffect(() => {
-          const node = innerRef.current;
-          if (!node || typeof ResizeObserver !== 'function') return undefined;
           const apply = (width) => {
             const next = Math.round(width || 0);
             if (next > 60) setWallWidth((previous) => (Math.abs(previous - next) > 1 ? next : previous));
           };
-          const observer = new ResizeObserver((entries) => {
-            for (const entry of entries) apply(entry.contentRect.width);
-          });
-          observer.observe(node);
-          apply(node.clientWidth);
+          let observer = null;
+          let raf = 0;
+          const attach = () => {
+            const node = innerRef.current;
+            if (!node) { raf = requestAnimationFrame(attach); return; }
+            observer = new ResizeObserver((entries) => {
+              for (const entry of entries) apply(entry.contentRect.width);
+            });
+            observer.observe(node);
+            apply(node.clientWidth);
+          };
+          attach();
           // 兜底：窗口缩放/侧栏变化时重新测量（ResizeObserver 在节点重挂时可能失效）
           const onResize = () => {
             if (innerRef.current) apply(innerRef.current.clientWidth);
           };
           window.addEventListener('resize', onResize);
           return () => {
-            observer.disconnect();
+            cancelAnimationFrame(raf);
+            if (observer) observer.disconnect();
             window.removeEventListener('resize', onResize);
           };
         }, []);
