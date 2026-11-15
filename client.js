@@ -3964,6 +3964,11 @@ window.__ModuleLoader__.load({
               }
               return;
             }
+            // 只在“看”的状态下用左右键切换便签；编辑中/输入框聚焦时一律放行
+            if (draft !== null) return;
+            const node = event.target;
+            const tag = node && node.tagName ? String(node.tagName).toUpperCase() : '';
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || (node && node.isContentEditable)) return;
             if (event.key === 'ArrowLeft' && props.onPrev) {
               event.preventDefault();
               props.onPrev();
