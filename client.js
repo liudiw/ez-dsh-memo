@@ -5869,6 +5869,7 @@ window.__ModuleLoader__.load({
             setActiveView(others.length);
             return others.concat([{ id, x: 48 + step, y: 40 + step }]);
           });
+          setActiveView(-1);   // 新开的那张默认在最上层
         }, [notes]);
         const closeView = useCallback(() => {
           setViewers((current) => current.slice(0, -1));
