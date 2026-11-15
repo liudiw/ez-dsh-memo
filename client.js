@@ -1584,6 +1584,7 @@ window.__ModuleLoader__.load({
         const [query, setQuery] = useState('');
         const [notes, setNotes] = useState([]);
         const [view, setView] = useState(null);
+        const [categories, setCategories] = useState([]);
         const [deep, setDeep] = useState([]);
         const [activeIndex, setActiveIndex] = useState(0);
         const [drag, setDrag] = useState(null);
@@ -1593,8 +1594,10 @@ window.__ModuleLoader__.load({
           try {
             const result = await apiCall('list');
             setNotes((result && Array.isArray(result.notes) ? result.notes : []).filter((note) => note.archived !== true));
+            setCategories(result && Array.isArray(result.categories) ? result.categories : []);
           } catch (error) {
             setNotes([]);
+            setCategories([]);
           }
         }, []);
 
