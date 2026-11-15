@@ -3888,6 +3888,7 @@ window.__ModuleLoader__.load({
         // 拖动窗口：按住标题栏
         const startDrag = (event) => {
           if (event.button !== undefined && event.button !== 0) return;
+          if (props.onActivate) props.onActivate();   // 标题栏 stopPropagation，这里补一次激活
           const origin = { x: event.clientX, y: event.clientY, left: props.x || 0, top: props.y || 0 };
           const move = (movedEvent) => {
             props.onMove(origin.left + (movedEvent.clientX - origin.x), origin.top + (movedEvent.clientY - origin.y));
