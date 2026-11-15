@@ -640,7 +640,7 @@ window.__ModuleLoader__.load({
 .dsm-drawerBackdrop{position:fixed;inset:0;pointer-events:auto;background:transparent}
 .dsm-quickCats{position:relative;z-index:12;display:flex;flex-direction:column;gap:2px;max-height:150px;overflow-y:auto;padding:4px;border-radius:9px;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base)}
 .dsm-quickCatChip{display:inline-flex;align-items:center;gap:4px;align-self:flex-start;height:20px;padding:0 8px;border-radius:999px;background:color-mix(in srgb,var(--dsw-alias-brand-primary) 12%,transparent);color:var(--dsw-alias-brand-primary);font-size:11px}
-.dsm-drawer{resize:horizontal;overflow:hidden;min-width:260px;max-width:78vw;position:fixed;animation:dsm-drawer-in .5s cubic-bezier(.22,.8,.24,1) both;top:0;right:0;bottom:0;z-index:2147482000;pointer-events:auto;width:min(360px,92vw);display:flex;flex-direction:column;gap:8px;padding:12px;background:var(--dsw-alias-bg-base);border-left:1px solid var(--dsw-alias-border-l1);box-shadow:-18px 0 44px -24px rgba(0,0,0,.5)}
+.dsm-drawer{resize:horizontal;overflow:hidden;min-width:260px;max-width:78vw;position:fixed;animation:dsm-drawer-in .4s cubic-bezier(.22,.8,.24,1) both;top:0;right:0;bottom:0;z-index:2147482000;pointer-events:auto;width:min(360px,92vw);display:flex;flex-direction:column;gap:8px;padding:12px;background:var(--dsw-alias-bg-base);border-left:1px solid var(--dsw-alias-border-l1);box-shadow:-18px 0 44px -24px rgba(0,0,0,.5)}
 .dsm-drawerHead{display:flex;align-items:center;gap:7px;font-size:13px}
 .dsm-drawerSearch{font:inherit;font-size:12.5px;height:28px;padding:0 9px;border-radius:7px;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);color:inherit;outline:none}
 .dsm-drawerSearch:focus{border-color:var(--dsw-alias-brand-primary)}
@@ -671,7 +671,9 @@ window.__ModuleLoader__.load({
 .dsm-setActions{display:flex;align-items:center;gap:8px;margin-top:4px}
 .dsm-setNote{font-size:12px;color:var(--dsw-alias-label-secondary)}
 @keyframes dsm-drawer-in{from{transform:translateX(24px);opacity:.35}to{transform:translateX(0);opacity:1}}
-@media (prefers-reduced-motion: reduce){.dsm-drawer{animation:none}}
+@keyframes dsm-drawer-out{from{transform:translateX(0);opacity:1}to{transform:translateX(24px);opacity:0}}
+.dsm-drawer-closing{animation:dsm-drawer-out .4s cubic-bezier(.4,0,.7,.4) both!important}
+@media (prefers-reduced-motion: reduce){.dsm-drawer,.dsm-drawer-closing{animation:none}}
 /* 快速便签 */
 .dsm-quickLayer{position:fixed;inset:0;z-index:2147482000;pointer-events:auto;display:flex;align-items:flex-start;justify-content:center;padding-top:12vh;background:color-mix(in srgb,var(--dsw-alias-label-primary) 20%,transparent)}
 .dsm-quickPanel{pointer-events:auto;position:relative;box-sizing:border-box;width:min(520px,92vw);display:flex;flex-direction:column;gap:8px;padding:12px 14px;border-radius:14px;background:var(--dsw-alias-bg-base);border:1px solid var(--dsw-alias-border-l1);box-shadow:0 30px 70px -30px rgba(0,0,0,.55)}
@@ -1619,6 +1621,7 @@ window.__ModuleLoader__.load({
     function makeMemoDrawer(t, actions) {
       return function MemoDrawer() {
         const [open, setOpen] = useState(false);
+        const [closing, setClosing] = useState(false);
         const [query, setQuery] = useState('');
         const [notes, setNotes] = useState([]);
         const [view, setView] = useState(null);
@@ -1628,6 +1631,16 @@ window.__ModuleLoader__.load({
         const [drag, setDrag] = useState(null);
         const [drawerWidth, setDrawerWidth] = useState(320);
         const prevFocus = useRef(null);
+
+        /** 关闭时先播 0.4s 收起动画，再真正卸载。 */
+        const closeDrawer = useCallback((after) => {
+          setClosing(true);
+          setTimeout(() => {
+            setClosing(false);
+            setOpen(false);
+            if (typeof after === 'function') after();
+          }, 400);
+        }, []);
 
         const refresh = useCallback(async () => {
           try {
@@ -1695,8 +1708,7 @@ window.__ModuleLoader__.load({
                 restoreFocus(prevFocus.current);
                 return;
               }
-              setOpen(false);
-              restoreFocus(prevFocus.current);
+              closeDrawer(() => restoreFocus(prevFocus.current));
               return;
             }
             if (drawKey !== 'm') return;
@@ -1813,14 +1825,13 @@ window.__ModuleLoader__.load({
             ? h('div', {
               className: 'dsm-drawerBackdrop',
               onPointerDown: () => {
-                setOpen(false);
-                restoreFocus(prevFocus.current);
+                closeDrawer(() => restoreFocus(prevFocus.current));
               },
             })
             : null,
           open
             ? h('div', {
-              className: 'dsm-drawer',
+              className: `dsm-drawer${closing ? ' dsm-drawer-closing' : ''}`,
               style: { width: `${drawerWidth}px` },
               role: 'dialog',
               'aria-label': t('drawer.title'),
@@ -1919,7 +1930,7 @@ window.__ModuleLoader__.load({
               type: 'button',
               className: 'dsm-btn',
               onClick: () => {
-                setOpen(false);
+                closeDrawer();
                 try {
                   window.dispatchEvent(new CustomEvent('dsh-memo:capture'));
                 } catch (error) {
@@ -1932,8 +1943,7 @@ window.__ModuleLoader__.load({
               type: 'button',
               className: 'dsm-btn dsm-btnPrimary',
               onClick: () => {
-                setOpen(false);
-                if (actions && actions.onOpenWall) actions.onOpenWall();
+                closeDrawer(() => { if (actions && actions.onOpenWall) actions.onOpenWall(); });
               },
             }, t('quick.openWall'))))
             : null,
