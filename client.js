@@ -669,6 +669,9 @@ window.__ModuleLoader__.load({
 .dsm-quickRecentText{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* [[ 便签候选 */
 .dsm-wikiList{position:absolute;left:8px;right:8px;bottom:calc(100% - 4px);z-index:2147482500;max-height:220px;overflow-y:auto;padding:5px;border-radius:10px;background:var(--dsw-alias-bg-base);border:1px solid var(--dsw-alias-border-l1);box-shadow:0 18px 40px -18px rgba(0,0,0,.4);display:flex;flex-direction:column;gap:2px}
+.dsm-wikiInline .dsm-wikiList{position:static;left:auto;right:auto;top:auto;bottom:auto;max-height:200px}
+.dsm-viewerEdit{position:relative;overflow:visible}
+.dsm-viewerEdit .dsm-wikiList{top:calc(100% + 6px);bottom:auto}
 .dsm-wikiItem{display:block;width:100%;text-align:left;font:inherit;font-size:12.5px;padding:6px 8px;border:none;border-radius:7px;background:transparent;color:var(--dsw-alias-label-primary);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dsm-wikiItem[data-active='true'],.dsm-wikiItem:hover{background:color-mix(in srgb,var(--dsw-alias-brand-primary) 14%,transparent)}
 .dsm-wikiEmpty{padding:8px;font-size:12px;color:var(--dsw-alias-label-secondary)}
@@ -1110,7 +1113,7 @@ window.__ModuleLoader__.load({
           if (!query) return true;
           return String(note.text || '').toLowerCase().indexOf(query) >= 0;
         })
-        .slice(0, 8);
+        .slice(0, 40);
       if (!items.length) {
         return h('div', { className: 'dsm-wikiList' }, h('div', { className: 'dsm-wikiEmpty' }, t('wiki.empty')));
       }
@@ -3141,7 +3144,7 @@ window.__ModuleLoader__.load({
                   if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
                     event.preventDefault();
                     const step = event.key === 'ArrowDown' ? 1 : -1;
-                    const list = recent.filter((item) => (!String(wiki.query || '').trim()
+                    const list = allNotes.filter((item) => (!String(wiki.query || '').trim()
                       ? true
                       : String(item.text || '').toLowerCase().indexOf(String(wiki.query).trim().toLowerCase()) >= 0));
                     setWikiIndex((current) => Math.max(0, Math.min(current + step, Math.max(0, list.length - 1))));
@@ -3150,7 +3153,7 @@ window.__ModuleLoader__.load({
                   if (event.key === 'Enter' || event.key === 'Tab') {
                     event.preventDefault();
                     const needle = String(wiki.query || '').trim().toLowerCase();
-                    const list = recent.filter((item) => (!needle ? true : String(item.text || '').toLowerCase().indexOf(needle) >= 0));
+                    const list = allNotes.filter((item) => (!needle ? true : String(item.text || '').toLowerCase().indexOf(needle) >= 0));
                     const picked = list[Math.min(wikiIndex, list.length - 1)];
                     if (picked) {
                       const title = noteTitleOf(picked) || picked.id.slice(0, 8);
