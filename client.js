@@ -1986,6 +1986,39 @@ window.__ModuleLoader__.load({
               },
             }, t('quick.openWall'))))
             : null,
+          ...deep.map((entry, index) => {
+            const target = notes.find((item) => item.id === entry.id) || entry;
+            return h(NoteViewer, {
+              key: `${entry.id}-${index}`,
+              t,
+              note: target,
+              x: entry.x || 40 + (index + 1) * 56,
+              y: entry.y || 56 + (index + 1) * 46,
+              z: 2147482001 + index,
+              language: 'zh',
+              categories,
+              allNotes: notes,
+              highlight: '',
+              onMove: (x, y) => setDeep((current) => current.map((item, position) => (position === index ? { ...item, x, y } : item))),
+              onOpenWiki: (targetId) => {
+                const next = notes.find((item) => item.id === targetId);
+                if (next) setDeep((current) => current.concat([{ id: next.id }]));
+              },
+              onClose: () => setDeep((current) => current.filter((unused, position) => position !== index)),
+              onSave: (text) => {
+                setNotes((current) => current.map((item) => (item.id === target.id ? { ...item, text } : item)));
+                apiCall('update', { id: target.id, text }).then(() => refresh()).catch(() => {});
+              },
+              onUpdate: (id, patch) => {
+                apiCall('update', Object.assign({ id }, patch || {})).then(() => refresh()).catch(() => {});
+              },
+              onToggleTask: () => {},
+              onImageClick: () => {},
+              onEdit: () => {},
+              onPrev: null,
+              onNext: null,
+            });
+          }),
           view
             ? h(NoteViewer, {
               key: view.id,
@@ -2001,10 +2034,7 @@ window.__ModuleLoader__.load({
               onMove: (x, y) => setDrag({ x, y }),
               onOpenWiki: (targetId) => {
                 const target = notes.find((item) => item.id === targetId);
-                if (target && view && target.id !== view.id) {
-                  setDeep((current) => current.concat([view]));   // 历史栈
-                  setView(target);
-                }
+                if (target) setDeep((current) => current.concat([{ id: target.id }]));
               },
               highlight: '',
               onClose: () => setView(null),
