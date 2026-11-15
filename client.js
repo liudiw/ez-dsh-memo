@@ -1645,6 +1645,7 @@ window.__ModuleLoader__.load({
       return function MemoDrawer() {
         const [open, setOpen] = useState(false);
         const [closing, setClosing] = useState(false);
+        const [activeCard, setActiveCard] = useState('main');
         const searchRef = useRef(null);
         const listRef = useRef(null);
         const [query, setQuery] = useState('');
@@ -1995,14 +1996,23 @@ window.__ModuleLoader__.load({
               x: entry.x || 40 + (index + 1) * 56,
               y: entry.y || 56 + (index + 1) * 46,
               z: 2147482001 + index,
+              isActive: activeCard === `deep-${index}`,
+              onActivate: () => setActiveCard(`deep-${index}`),
               language: 'zh',
               categories,
               allNotes: notes,
               highlight: '',
+              isActive: activeCard === `deep-${index}`,
+              onActivate: () => setActiveCard(`deep-${index}`),
               onMove: (x, y) => setDeep((current) => current.map((item, position) => (position === index ? { ...item, x, y } : item))),
               onOpenWiki: (targetId) => {
                 const next = notes.find((item) => item.id === targetId);
-                if (next) setDeep((current) => current.concat([{ id: next.id }]));
+                if (next) {
+                  setDeep((current) => {
+                    setActiveCard(`deep-${current.length}`);
+                    return current.concat([{ id: next.id }]);
+                  });
+                }
               },
               onClose: () => setDeep((current) => current.filter((unused, position) => position !== index)),
               onSave: (text) => {
@@ -2034,9 +2044,16 @@ window.__ModuleLoader__.load({
               onMove: (x, y) => setDrag({ x, y }),
               onOpenWiki: (targetId) => {
                 const target = notes.find((item) => item.id === targetId);
-                if (target) setDeep((current) => current.concat([{ id: target.id }]));
+                if (target) {
+                  setDeep((current) => {
+                    setActiveCard(`deep-${current.length}`);
+                    return current.concat([{ id: target.id }]);
+                  });
+                }
               },
               highlight: '',
+              isActive: activeCard === 'main',
+              onActivate: () => setActiveCard('main'),
               onClose: () => setView(null),
               onSave: (text) => {
                 // 先本地更新（列表片段立即变），再落盘并刷新
@@ -3808,6 +3825,7 @@ window.__ModuleLoader__.load({
 
         useEffect(() => {
           const onKey = (event) => {
+            if (props.isActive === false) return;   // 只有最上层那扇窗响应快捷键
             if (event.altKey && String(event.key || '').toLowerCase() === 's' && draft !== null) {
               event.preventDefault();
               event.stopPropagation();
@@ -3891,7 +3909,10 @@ window.__ModuleLoader__.load({
             top: `${Math.round(props.y || 0)}px`,
             zIndex: props.z || undefined,
           },
-          onPointerDown: (event) => event.stopPropagation(),
+          onPointerDown: (event) => {
+            event.stopPropagation();
+            if (props.onActivate) props.onActivate();
+          },
         },
             h('div', { className: 'dsm-viewerHead dsm-dragHandle', onPointerDown: startDrag, title: t('view.drag') },
               h('span', { className: 'dsm-viewerDot' }),
@@ -6512,9 +6533,11 @@ window.__ModuleLoader__.load({
                 const note = notes.find((item) => item.id === entry.id);
                 if (!note) return null;
                 const order = display.findIndex((item) => item.id === note.id);
+                const isTop = index === viewers.length - 1;
                 return h(NoteViewer, {
                   key: `${entry.id}-${index}`,
                   t,
+                  isActive: isTop,
                   note,
                   x: entry.x,
                   y: entry.y,
