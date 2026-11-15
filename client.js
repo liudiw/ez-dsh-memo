@@ -584,6 +584,7 @@ window.__ModuleLoader__.load({
 .dsm-noteInput:focus{border-color:var(--dsw-alias-brand-primary)}
 .dsm-noteFoot{flex:0 0 auto;display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-top:8px;padding-top:6px;border-top:1px dashed color-mix(in srgb,var(--dsm-accent) 30%,transparent)}
 .dsm-pinMark{display:inline-flex;align-items:center;color:var(--dsw-alias-label-secondary)}
+.dsm-noteStamp{flex:0 0 auto;font-size:10.5px;line-height:1.4;color:var(--dsw-alias-label-secondary);opacity:.85;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dsm-time{font-size:11px;color:var(--dsw-alias-label-secondary);white-space:nowrap}
 .dsm-noteActions{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;column-gap:1px;row-gap:2px;margin-left:auto;opacity:0;min-width:0;transition:opacity .14s}
 .dsm-note:hover .dsm-noteActions,.dsm-note:focus-within .dsm-noteActions{opacity:1}
@@ -4451,6 +4452,8 @@ window.__ModuleLoader__.load({
           setRemindOpen(false);
         };
 
+        const stampLabel = `${timeAgo(note.createdAt, language)}（${fullTime(note.createdAt, language)}）`;
+
         const footerLeft = [
           note.pinned
             ? h('span', { key: 'pin', className: 'dsm-pinMark', title: t('note.pinned') }, h(Icon, { name: 'pin', size: 12 }))
@@ -4467,7 +4470,7 @@ window.__ModuleLoader__.load({
                 ? t('remind.doneBadge')
                 : `${remind.kind === 'due' ? t('remind.due') : formatRemind(note.remindAt, language, note.repeat, nowStamp, t)}`))
             : null,
-          h('span', { key: 'time', className: 'dsm-time', title: fullTime(note.createdAt, language) }, timeAgo(note.createdAt, language)),
+
           note.syncConflict
             ? h('span', { key: 'conflict', className: 'dsm-badge', title: t('note.conflict') }, t('note.conflict'))
             : null,
@@ -4853,6 +4856,7 @@ window.__ModuleLoader__.load({
             height: `${Math.round(height)}px`,
           },
         },
+          h('div', { className: 'dsm-noteStamp', title: fullTime(note.createdAt, language) }, stampLabel),
           editing
             ? h('div', { className: 'dsm-editWrap' },
               h('textarea', {
