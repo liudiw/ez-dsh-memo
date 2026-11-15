@@ -158,11 +158,13 @@ window.__ModuleLoader__.load({
       'quick.pickCategory': '分类',
       'quick.pickCategoryHint': '分类（Alt+C）',
       'drawer.resize': '拖动调整宽度',
+      'drawer.pinned': '置顶',
       'drawer.today': '今日',
       'drawer.week': '本周',
       'drawer.month': '本月',
       'drawer.past': '历史',
       'drawer.resize': 'Drag to resize',
+      'drawer.pinned': 'Pinned',
       'drawer.today': 'Today',
       'drawer.week': 'This week',
       'drawer.month': 'This month',
@@ -1862,8 +1864,24 @@ window.__ModuleLoader__.load({
               ? h('div', { className: 'dsm-wikiEmpty' }, t('drawer.empty'))
               : (() => {
                 const rows = [];
+                const pinnedNotes = shown.filter((note) => note.pinned === true);
+                const restNotes = shown.filter((note) => note.pinned !== true);
+                if (pinnedNotes.length) {
+                  rows.push(h('div', { key: 'group-pinned', className: 'dsm-drawerGroup' }, t('drawer.pinned')));
+                  pinnedNotes.forEach((note) => {
+                    rows.push(h('button', {
+                      key: `pin-${note.id}`,
+                      type: 'button',
+                      className: 'dsm-drawerItem',
+                      onClick: () => setView(note),
+                    },
+                      h('span', { className: 'dsm-quickDot', style: { background: ACCENTS[note.color] || ACCENTS[DEFAULT_COLOR] } }),
+                      h('span', { className: 'dsm-drawerText' }, stripWiki(String(noteTitleOf(note) || note.id.slice(0, 8)))),
+                      h('span', { className: 'dsm-drawerTime' }, fullTime(note.createdAt, 'zh'))));
+                  });
+                }
                 let bucket = '';
-                shown.forEach((note, index) => {
+                restNotes.forEach((note) => {
                   const stamp = Date.parse(note.createdAt || '') || 0;
                   const next = bucketOf(stamp);
                   if (next !== bucket) {
@@ -1874,7 +1892,6 @@ window.__ModuleLoader__.load({
                     key: note.id,
                     type: 'button',
                     className: 'dsm-drawerItem',
-                    'data-active': index === activeIndex ? 'true' : undefined,
                     onClick: () => setView(note),
                   },
                     h('span', { className: 'dsm-quickDot', style: { background: ACCENTS[note.color] || ACCENTS[DEFAULT_COLOR] } }),
@@ -4626,7 +4643,6 @@ window.__ModuleLoader__.load({
               className: 'dsm-iconBtn',
               title: note.pinned ? t('note.unpin') : t('note.pin'),
               'aria-label': note.pinned ? t('note.unpin') : t('note.pin'),
-              'aria-pressed': note.pinned ? 'true' : 'false',
               disabled: props.busy,
               onClick: () => props.onUpdate(note.id, { pinned: !note.pinned }),
             }, h(Icon, { name: 'pin', size: 14 })),
@@ -4744,7 +4760,7 @@ window.__ModuleLoader__.load({
           if (!drag) return;
           event.preventDefault();
           const next = {
-            width: Math.round(Math.min(drag.maxWidth, Math.max(DEFAULT_NOTE_WIDTH, drag.width + (event.clientX - drag.x)))),
+            width: Math.round(Math.min(drag.maxWidth, Math.max(300, drag.width + (event.clientX - drag.x)))),
             height: Math.round(Math.min(MAX_NOTE_HEIGHT, Math.max(DEFAULT_NOTE_HEIGHT, drag.height + (event.clientY - drag.y)))),
           };
           resizedRef.current = next;
