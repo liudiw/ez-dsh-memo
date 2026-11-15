@@ -42,7 +42,7 @@ window.__ModuleLoader__.load({
       'refresh': '刷新',
       'loading': '正在读取便签…',
       'retry': '重试',
-      'composer.placeholder': '记下一个念头…（Enter 保存，Shift+Enter 换行）',
+      'composer.placeholder': '记下一个念头…（Ctrl/⌘+Enter 保存）',
       'remind.snooze': '延后 5 分钟',
       'remind.dismiss': '关闭',
       'remind.dismissAll': '全部关闭',
@@ -118,7 +118,7 @@ window.__ModuleLoader__.load({
       'filter.image': '只看带图片的',
       'filter.recent': '只看最近 7 天',
       'quick.title': '快速便签',
-      'quick.hint': 'Enter 保存 · Shift+Enter 换行 · Alt+N 唤起',
+      'quick.hint': 'Ctrl/⌘+Enter 保存 · Alt+N 唤起',
       'quick.placeholder': '想到什么，随手记一句…',
       'quick.save': '保存（Alt+S）',
       'quick.saved': '已存到便签墙',
@@ -301,7 +301,7 @@ window.__ModuleLoader__.load({
       'filter.image': 'With image',
       'filter.recent': 'Last 7 days',
       'quick.title': 'Quick note',
-      'quick.hint': 'Enter saves · Shift+Enter newline · Alt+N opens',
+      'quick.hint': 'Ctrl/⌘+Enter saves · Alt+N opens',
       'quick.placeholder': 'Jot down a spark…',
       'quick.save': 'Save (Alt+S)',
       'quick.saved': 'Saved',
@@ -3451,7 +3451,8 @@ window.__ModuleLoader__.load({
                   hide();
                   return;
                 }
-                if (event.key === 'Enter' && !event.shiftKey) {
+                // Enter 换行；Ctrl/Cmd+Enter 保存
+                if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
                   event.preventDefault();
                   save();
                 }
@@ -6299,7 +6300,8 @@ window.__ModuleLoader__.load({
                       }
                     }
                     if (event.key !== 'Enter' || composing) return;
-                    if (event.metaKey || event.ctrlKey || !event.shiftKey) {
+                    // Enter 换行；Ctrl/Cmd+Enter 保存
+                    if (event.metaKey || event.ctrlKey) {
                       event.preventDefault();
                       submitDraft();
                     }
