@@ -157,6 +157,14 @@ window.__ModuleLoader__.load({
       'quick.cancel': '取消',
       'quick.pickCategory': '分类',
       'quick.pickCategoryHint': '分类（Alt+C）',
+      'drawer.today': '今日',
+      'drawer.week': '本周',
+      'drawer.month': '本月',
+      'drawer.past': '历史',
+      'drawer.today': 'Today',
+      'drawer.week': 'This week',
+      'drawer.month': 'This month',
+      'drawer.past': 'Earlier',
       'drawer.title': '便签',
       'drawer.empty': '还没有便签',
       'quick.openWall': '打开便签墙',
@@ -627,7 +635,7 @@ window.__ModuleLoader__.load({
 .dsm-drawerBackdrop{position:fixed;inset:0;pointer-events:auto;background:color-mix(in srgb,var(--dsw-alias-label-primary) 12%,transparent)}
 .dsm-quickCats{position:relative;z-index:12;display:flex;flex-direction:column;gap:2px;max-height:150px;overflow-y:auto;padding:4px;border-radius:9px;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base)}
 .dsm-quickCatChip{display:inline-flex;align-items:center;gap:4px;align-self:flex-start;height:20px;padding:0 8px;border-radius:999px;background:color-mix(in srgb,var(--dsw-alias-brand-primary) 12%,transparent);color:var(--dsw-alias-brand-primary);font-size:11px}
-.dsm-drawer{position:fixed;top:0;right:0;bottom:0;z-index:2147482000;pointer-events:auto;width:min(360px,92vw);display:flex;flex-direction:column;gap:8px;padding:12px;background:var(--dsw-alias-bg-base);border-left:1px solid var(--dsw-alias-border-l1);box-shadow:-18px 0 44px -24px rgba(0,0,0,.5)}
+.dsm-drawer{resize:horizontal;overflow:hidden;min-width:260px;max-width:78vw;position:fixed;top:0;right:0;bottom:0;z-index:2147482000;pointer-events:auto;width:min(360px,92vw);display:flex;flex-direction:column;gap:8px;padding:12px;background:var(--dsw-alias-bg-base);border-left:1px solid var(--dsw-alias-border-l1);box-shadow:-18px 0 44px -24px rgba(0,0,0,.5)}
 .dsm-drawerHead{display:flex;align-items:center;gap:7px;font-size:13px}
 .dsm-drawerSearch{font:inherit;font-size:12.5px;height:28px;padding:0 9px;border-radius:7px;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);color:inherit;outline:none}
 .dsm-drawerSearch:focus{border-color:var(--dsw-alias-brand-primary)}
@@ -635,6 +643,7 @@ window.__ModuleLoader__.load({
 .dsm-drawerItem{display:flex;align-items:center;gap:6px;width:100%;text-align:left;font:inherit;font-size:12.5px;padding:6px;border:none;border-radius:7px;background:transparent;color:var(--dsw-alias-label-primary);cursor:pointer}
 .dsm-drawerItem[data-active='true']{background:color-mix(in srgb,var(--dsw-alias-brand-primary) 14%,transparent)}
 .dsm-drawerItem:hover{background:var(--dsw-alias-bg-layer-1)}
+.dsm-drawerGroup{margin:8px 0 4px;font-size:10.5px;letter-spacing:.4px;color:var(--dsw-alias-label-secondary);opacity:.75;text-transform:uppercase}
 .dsm-drawerTime{flex:none;font-size:10.5px;color:var(--dsw-alias-label-secondary);opacity:.8}
 .dsm-drawerText{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dsm-drawerBadge{flex:none;font-size:10px}
@@ -1721,6 +1730,19 @@ window.__ModuleLoader__.load({
         // 抽屉关了也要能留着悬浮卡（只关抽屉本身）
         if (!open && !view) return null;
 
+        /** 今日 / 本周 / 本月 / 历史 四档（越新越靠前）。 */
+        const bucketOf = (stamp) => {
+          const now = new Date();
+          const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+          const week = start - ((now.getDay() + 6) % 7) * 86400000;
+          const month = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+          if (stamp >= start) return t('drawer.today');
+          if (stamp >= week) return t('drawer.week');
+          if (stamp >= month) return t('drawer.month');
+          return t('drawer.past');
+        };
+
+
         // 悬浮查看窗：按住标题栏拖，不挡后面的会话
         const startDrag = (event) => {
           if (event.button !== undefined && event.button !== 0) return;
@@ -1781,19 +1803,32 @@ window.__ModuleLoader__.load({
           h('div', { className: 'dsm-drawerList' },
             shown.length === 0
               ? h('div', { className: 'dsm-wikiEmpty' }, t('drawer.empty'))
-              : shown.map((note) => h('button', {
-                key: note.id,
-                type: 'button',
-                className: 'dsm-drawerItem',
-                'data-active': shown.findIndex((item) => item.id === note.id) === activeIndex ? 'true' : undefined,
-                onClick: () => setView(note),
-              },
-                h('span', { className: 'dsm-quickDot', style: { background: ACCENTS[note.color] || ACCENTS[DEFAULT_COLOR] } }),
-                h('span', { className: 'dsm-drawerText' }, noteTitleOf(note) || note.id.slice(0, 8)),
-                h('span', { className: 'dsm-drawerTime' }, fullTime(note.createdAt, 'zh')),
-                note.remindAt && note.done !== true
-                  ? h('span', { className: 'dsm-drawerBadge' }, '⏰')
-                  : null))),
+              : (() => {
+                const rows = [];
+                let bucket = '';
+                shown.forEach((note, index) => {
+                  const stamp = Date.parse(note.createdAt || '') || 0;
+                  const next = bucketOf(stamp);
+                  if (next !== bucket) {
+                    bucket = next;
+                    rows.push(h('div', { key: `group-${next}`, className: 'dsm-drawerGroup' }, next));
+                  }
+                  rows.push(h('button', {
+                    key: note.id,
+                    type: 'button',
+                    className: 'dsm-drawerItem',
+                    'data-active': index === activeIndex ? 'true' : undefined,
+                    onClick: () => setView(note),
+                  },
+                    h('span', { className: 'dsm-quickDot', style: { background: ACCENTS[note.color] || ACCENTS[DEFAULT_COLOR] } }),
+                    h('span', { className: 'dsm-drawerText' }, noteTitleOf(note) || note.id.slice(0, 8)),
+                    h('span', { className: 'dsm-drawerTime' }, fullTime(note.createdAt, 'zh')),
+                    note.remindAt && note.done !== true
+                      ? h('span', { className: 'dsm-drawerBadge' }, '⏰')
+                      : null));
+                });
+                return rows;
+              })()),
           h('div', { className: 'dsm-drawerFoot' },
             h('button', {
               type: 'button',
