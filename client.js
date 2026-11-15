@@ -5119,6 +5119,7 @@ window.__ModuleLoader__.load({
         const [nowTick, setNowTick] = useState(() => Date.now());
         const [toasts, setToasts] = useState([]);
         const [viewers, setViewers] = useState([]);
+        const [activeView, setActiveView] = useState(-1);
         const [panelSize, setPanelSize] = useState({ width: 0, height: 0 });
         const rootRef = useRef(null);
         const [editId, setEditId] = useState(null);
@@ -5865,6 +5866,7 @@ window.__ModuleLoader__.load({
           setViewers((current) => {
             const others = current.filter((item) => item.id !== id);
             const step = others.length * 26;
+            setActiveView(others.length);
             return others.concat([{ id, x: 48 + step, y: 40 + step }]);
           });
         }, [notes]);
@@ -5884,13 +5886,8 @@ window.__ModuleLoader__.load({
         const closeViewer = useCallback((index) => {
           setViewers((current) => current.filter((unused, position) => position !== index));
         }, []);
-        const raiseViewer = useCallback((index) => {
-          setViewers((current) => {
-            if (index < 0 || index >= current.length - 1) return current;
-            const item = current[index];
-            return current.filter((unused, position) => position !== index).concat([item]);
-          });
-        }, []);
+        // 只记录“谁在最上层”，不重排数组——重排会让正在拖拽的 index 失效
+        const raiseViewer = useCallback((index) => setActiveView(index), []);
         const moveViewer = useCallback((index, x, y) => {
           setViewers((current) => current.map((item, position) => (
             position === index
@@ -6545,11 +6542,12 @@ window.__ModuleLoader__.load({
                 const note = notes.find((item) => item.id === entry.id);
                 if (!note) return null;
                 const order = display.findIndex((item) => item.id === note.id);
-                const isTop = index === viewers.length - 1;
+                const isTop = index === (activeView >= 0 ? activeView : viewers.length - 1);
                 return h(NoteViewer, {
                   key: `${entry.id}-${index}`,
                   t,
                   isActive: isTop,
+                  z: isTop ? 2147482600 : 2147482000 + index,
                   onActivate: () => raiseViewer(index),
                   note,
                   x: entry.x,
