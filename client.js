@@ -1235,7 +1235,7 @@ window.__ModuleLoader__.load({
         positions.set(note.id, spot);
       }
       const height = placed.reduce((max, rect) => Math.max(max, rect.y + rect.h), 0);
-      return { positions, height };
+      return { positions, height, cols: metrics.count, cell: metrics.cell, gap: metrics.gap };
     }
     /* #endregion packer */
 
@@ -5950,10 +5950,12 @@ window.__ModuleLoader__.load({
               : null);
         }
 
+        const renderMetrics = packMetrics((innerRef.current && innerRef.current.clientWidth) || wallWidth || 0);
+
         return h('div', {
           className: 'dsm-root',
           ref: rootRef,
-          'data-debug': `w=${Math.round(wallWidth)} live=${Math.round((innerRef.current && innerRef.current.clientWidth) || 0)} n=${display.length} cols=${layout.cols || 0} cell=${Math.round(layout.cell || 0)}`,
+          'data-debug': `w=${Math.round(wallWidth)} live=${Math.round((innerRef.current && innerRef.current.clientWidth) || 0)} n=${display.length} cols=${renderMetrics.count} cell=${Math.round(renderMetrics.cell)} layoutCols=${layout.cols || 0}`,
         },
           h('div', { className: 'dsm-scroll' },
             h('div', { className: 'dsm-inner', ref: innerRef },
