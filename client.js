@@ -5041,6 +5041,7 @@ window.__ModuleLoader__.load({
         const [trash, setTrash] = useState([]);
         const [trashOpen, setTrashOpen] = useState(false);
         const [wallWidth, setWallWidth] = useState(0);
+        const [layoutTick, setLayoutTick] = useState(0);
         const [resizeActive, setResizeActive] = useState(false);
         const composerRef = useRef(null);
         const alive = useRef(true);
@@ -5511,7 +5512,10 @@ window.__ModuleLoader__.load({
           };
           measure();
           window.addEventListener('resize', measure);
-          const timer = setInterval(measure, 1200);
+          const timer = setInterval(() => {
+            measure();
+            setLayoutTick((current) => current + 1);   // 强制重排一次，确保宽度变化被采纳
+          }, 1200);
           return () => {
             window.removeEventListener('resize', measure);
             clearInterval(timer);
@@ -5805,10 +5809,11 @@ window.__ModuleLoader__.load({
           if (resizeActive) return frozenLayoutRef.current;
           const live = innerRef.current && innerRef.current.clientWidth;
           const width = live && live > 60 ? live : wallWidth;
+          if (window.__DSM_MEMO_DEBUG__) console.warn('[dsh-memo] layout', { live, wallWidth, notes: display.length });
           const packed = packNotes(display, width, 14);
           frozenLayoutRef.current = packed;
           return packed;
-        }, [display, wallWidth, resizeActive]);
+        }, [display, wallWidth, resizeActive, layoutTick]);
 
         /** 顺序变化后回放：先瞬间挪回旧位置，再过渡回新位置。 */
         useLayoutEffect(() => {
