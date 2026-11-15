@@ -2813,7 +2813,7 @@ window.__ModuleLoader__.load({
                 vault: form.vault,
                 folder: form.folder,
                 imageFolder: form.imageFolder,
-                intervalMs: Number(form.intervalMs) * 1000,
+                intervalMs: Number(form.intervalMs),   // 表单里已经是毫秒（输入时 ×1000），不要重复换算
                 apiToken: token,
               },
             });
