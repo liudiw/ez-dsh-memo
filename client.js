@@ -644,8 +644,8 @@ window.__ModuleLoader__.load({
 .dsm-quickBtn{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;padding:0;border:none;border-radius:7px;background:transparent;color:var(--dsw-alias-label-secondary);cursor:pointer}
 .dsm-quickBtn:hover{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary)}
 .dsm-quickHost{position:fixed;inset:0;z-index:2147482000;pointer-events:none}
-.dsm-quickSel{position:fixed;transform:translate(2px,6px);pointer-events:auto;display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 14px;border-radius:999px;border:none;background:var(--dsw-alias-brand-primary,#4c6ef5);color:#fff;font:inherit;font-size:13px;font-weight:600;letter-spacing:.2px;box-shadow:0 10px 26px -8px rgba(0,0,0,.5);cursor:pointer}
-.dsm-quickSel:hover{filter:brightness(1.06)}
+.dsm-quickSel{position:fixed;transform:translate(2px,6px);pointer-events:auto;display:inline-flex!important;align-items:center;justify-content:center;gap:5px;height:30px!important;min-height:30px!important;max-height:30px!important;padding:0 14px!important;border:none!important;border-radius:999px!important;background:var(--dsw-alias-brand-primary,#4c6ef5)!important;color:#fff!important;font:inherit;font-size:13px!important;font-weight:600;letter-spacing:.2px;line-height:1!important;white-space:nowrap;box-shadow:0 10px 26px -8px rgba(0,0,0,.5);cursor:pointer;opacity:1!important}
+.dsm-quickSel:hover,.dsm-quickSel:focus-visible{background:color-mix(in srgb,var(--dsw-alias-brand-primary,#4c6ef5) 88%,#000)!important;color:#fff!important;opacity:1!important}
 .dsm-quickSel:hover{background:var(--dsw-alias-bg-layer-1)}
 .dsm-quickRemind{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--dsw-alias-label-secondary)}
 .dsm-quickTime{font:inherit;font-size:12px;height:24px;padding:0 6px;border-radius:6px;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary)}
@@ -3132,10 +3132,12 @@ window.__ModuleLoader__.load({
             let rect = null;
             try {
               const range = selection.getRangeAt(0);
-              rect = range.getBoundingClientRect();
+              const rects = range.getClientRects();
+              rect = rects && rects.length ? rects[rects.length - 1] : range.getBoundingClientRect();
             } catch (error) {
               rect = null;
             }
+
             if (!rect || (!rect.width && !rect.height)) {
               setBubble(null);
               return;
