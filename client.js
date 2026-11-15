@@ -163,6 +163,8 @@ window.__ModuleLoader__.load({
       'wiki.empty': '没有匹配的便签',
       'wiki.hint': '↑↓ 选择 · Enter 插入 · Esc 取消',
       'view.drag': '按住标题栏拖动',
+      'view.created': '建立于',
+      'view.created': 'Created',
       'view.title': '查看便签',
       'view.open': '查看全文',
       'view.close': '关闭',
@@ -677,7 +679,7 @@ window.__ModuleLoader__.load({
 .dsm-wikiEmpty{padding:8px;font-size:12px;color:var(--dsw-alias-label-secondary)}
 /* 全文查看弹窗 */
 .dsm-viewer{position:absolute;inset:0;z-index:55;display:flex;align-items:center;justify-content:center;padding:24px 16px;background:color-mix(in srgb,var(--dsw-alias-label-primary) 26%,transparent)}
-.dsm-viewerCard{box-sizing:border-box;display:flex;flex-direction:column;width:min(720px,100%);max-height:100%;border-radius:14px;background:var(--dsw-alias-bg-base);border:1px solid var(--dsw-alias-border-l1);box-shadow:0 30px 70px -30px rgba(0,0,0,.55);overflow:hidden}
+.dsm-viewerCard{resize:both;overflow:hidden;min-width:340px;min-height:220px;box-sizing:border-box;display:flex;flex-direction:column;width:min(720px,100%);max-height:100%;border-radius:14px;background:var(--dsw-alias-bg-base);border:1px solid var(--dsw-alias-border-l1);box-shadow:0 30px 70px -30px rgba(0,0,0,.55);overflow:hidden}
 .dsm-viewerHead{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--dsw-alias-border-l1);background:color-mix(in srgb,var(--dsm-viewAccent,#888) 10%,transparent)}
 .dsm-viewerDot{width:9px;height:9px;border-radius:50%;flex:none;background:var(--dsm-viewAccent,#888)}
 .dsm-viewerTitle{flex:1 1 auto;min-width:0;font-size:12.5px;color:var(--dsw-alias-label-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -1811,37 +1813,27 @@ window.__ModuleLoader__.load({
             }, t('quick.openWall'))))
             : null,
           view
-            ? h('div', {
-              className: 'dsm-floatCard',
-              role: 'dialog',
-              'aria-label': t('view.title'),
-              style: {
-                '--dsm-viewAccent': ACCENTS[view.color] || ACCENTS[DEFAULT_COLOR],
-                left: `${drag ? drag.x : 40}px`,
-                top: `${drag ? drag.y : 90}px`,
+            ? h(NoteViewer, {
+              key: view.id,
+              note: view,
+              x: drag ? drag.x : 48,
+              y: drag ? drag.y : 90,
+              language,
+              categories,
+              allNotes: notes,
+              onMove: (x, y) => setDrag({ x, y }),
+              onOpenWiki: (targetId) => {
+                const target = notes.find((item) => item.id === targetId);
+                if (target) setView(target);
               },
-            },
-              h('div', { className: 'dsm-viewerHead dsm-dragHandle', onPointerDown: startDrag, title: t('view.drag') },
-                h('span', { className: 'dsm-viewerDot' }),
-                h('span', { className: 'dsm-viewerTitle' }, noteTitleOf(view) || fullTime(view.createdAt, 'zh')),
-                h('button', {
-                  type: 'button',
-                  className: 'dsm-iconBtn',
-                  title: t('view.close'),
-                  'aria-label': t('view.close'),
-                  onClick: () => setView(null),
-                }, h(Icon, { name: 'close', size: 14 }))),
-              h('div', { className: 'dsm-viewerBody' },
-                h('div', { className: 'dsm-noteText' }, withWikiContext(
-                  {
-                    notes,
-                    onOpen: (targetId) => {
-                      const target = notes.find((item) => item.id === targetId);
-                      if (target) setDeep((current) => current.concat([Object.assign({}, target, { x: 70 + (current.length + 1) * 26, y: 130 + (current.length + 1) * 26 })]));
-                    },
-                  },
-                  () => renderMdBlocks(parseMarkdownBlocks(view.text), 'drawer'),
-                ))))
+              onClose: () => setView(null),
+              onSave: (text) => {
+                apiCall('update', { id: view.id, text })
+                  .then(() => refresh())
+                  .catch(() => {});
+                setView(null);
+              },
+            })
             : null,
             deep.map((entry, index) => h('div', {
             key: `${entry.id}-${index}`,
@@ -4017,7 +4009,7 @@ window.__ModuleLoader__.load({
               h('span', { className: 'dsm-viewerDot' }),
               h('span', { className: 'dsm-viewerTitle' },
                 [
-                  fullTime(note.createdAt, language),
+                  `${t('view.created')} ${fullTime(note.createdAt, language)}`,
                   names.length ? names.join(' · ') : '',
                   remind ? (remind.kind === 'done' ? t('remind.doneBadge') : formatRemind(note.remindAt, language, note.repeat, Date.now(), t)) : '',
                 ].filter(Boolean).join('　·　')),
