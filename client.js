@@ -679,7 +679,7 @@ window.__ModuleLoader__.load({
 .dsm-wikiEmpty{padding:8px;font-size:12px;color:var(--dsw-alias-label-secondary)}
 /* 全文查看弹窗 */
 .dsm-viewer{position:absolute;inset:0;z-index:55;display:flex;align-items:center;justify-content:center;padding:24px 16px;background:color-mix(in srgb,var(--dsw-alias-label-primary) 26%,transparent)}
-.dsm-viewerCard{resize:both;overflow:hidden;min-width:340px;min-height:220px;box-sizing:border-box;display:flex;flex-direction:column;width:min(720px,100%);max-height:100%;border-radius:14px;background:var(--dsw-alias-bg-base);border:1px solid var(--dsw-alias-border-l1);box-shadow:0 30px 70px -30px rgba(0,0,0,.55);overflow:hidden}
+.dsm-viewerCard{pointer-events:auto;resize:both;overflow:hidden;min-width:340px;min-height:220px;box-sizing:border-box;display:flex;flex-direction:column;width:min(720px,100%);max-height:100%;border-radius:14px;background:var(--dsw-alias-bg-base);border:1px solid var(--dsw-alias-border-l1);box-shadow:0 30px 70px -30px rgba(0,0,0,.55);overflow:hidden}
 .dsm-viewerHead{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--dsw-alias-border-l1);background:color-mix(in srgb,var(--dsm-viewAccent,#888) 10%,transparent)}
 .dsm-viewerDot{width:9px;height:9px;border-radius:50%;flex:none;background:var(--dsm-viewAccent,#888)}
 .dsm-viewerTitle{flex:1 1 auto;min-width:0;font-size:12.5px;color:var(--dsw-alias-label-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
