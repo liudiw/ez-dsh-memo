@@ -4679,7 +4679,10 @@ window.__ModuleLoader__.load({
         }, [note.width, note.height]);
         // 宽高都至少是默认值（老数据里更小的值也按默认渲染）。
         const packed = props.packed || null;
-        const width = Math.max(DEFAULT_NOTE_WIDTH, resized ? resized.width : (packed ? packed.w : (note.width || DEFAULT_NOTE_WIDTH)));
+        // 排版给的宽度必须被采纳（之前被 DEFAULT_NOTE_WIDTH 夹住 → 窄屏必然重叠）
+        const width = resized
+          ? resized.width
+          : (packed ? packed.w : Math.max(DEFAULT_NOTE_WIDTH, note.width || DEFAULT_NOTE_WIDTH));
         const height = Math.max(DEFAULT_NOTE_HEIGHT, resized ? resized.height : (packed ? packed.h : (note.height || DEFAULT_NOTE_HEIGHT)));
 
         // 正文被容器裁掉时给个「还有内容」的提示（高度或文本变化时重新测）
