@@ -157,10 +157,12 @@ window.__ModuleLoader__.load({
       'quick.cancel': '取消',
       'quick.pickCategory': '分类',
       'quick.pickCategoryHint': '分类（Alt+C）',
+      'drawer.resize': '拖动调整宽度',
       'drawer.today': '今日',
       'drawer.week': '本周',
       'drawer.month': '本月',
       'drawer.past': '历史',
+      'drawer.resize': 'Drag to resize',
       'drawer.today': 'Today',
       'drawer.week': 'This week',
       'drawer.month': 'This month',
@@ -643,6 +645,9 @@ window.__ModuleLoader__.load({
 .dsm-drawerItem{display:flex;align-items:center;gap:6px;width:100%;text-align:left;font:inherit;font-size:12.5px;padding:6px;border:none;border-radius:7px;background:transparent;color:var(--dsw-alias-label-primary);cursor:pointer}
 .dsm-drawerItem[data-active='true']{background:color-mix(in srgb,var(--dsw-alias-brand-primary) 14%,transparent)}
 .dsm-drawerItem:hover{background:var(--dsw-alias-bg-layer-1)}
+.dsm-drawerGrip{position:absolute;left:0;top:0;bottom:0;width:6px;cursor:col-resize;z-index:2}
+.dsm-drawerGrip:hover{background:color-mix(in srgb,var(--dsw-alias-brand-primary) 30%,transparent)}
+.dsm-drawerTextLink{color:var(--dsw-alias-brand-primary)}
 .dsm-drawerGroup{margin:8px 0 4px;font-size:10.5px;letter-spacing:.4px;color:var(--dsw-alias-label-secondary);opacity:.75;text-transform:uppercase}
 .dsm-drawerTime{flex:none;font-size:10.5px;color:var(--dsw-alias-label-secondary);opacity:.8}
 .dsm-drawerText{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -1598,6 +1603,7 @@ window.__ModuleLoader__.load({
         const [deep, setDeep] = useState([]);
         const [activeIndex, setActiveIndex] = useState(0);
         const [drag, setDrag] = useState(null);
+        const [drawerWidth, setDrawerWidth] = useState(320);
         const prevFocus = useRef(null);
 
         const refresh = useCallback(async () => {
@@ -1781,7 +1787,32 @@ window.__ModuleLoader__.load({
             })
             : null,
           open
-            ? h('div', { className: 'dsm-drawer', role: 'dialog', 'aria-label': t('drawer.title') },
+            ? h('div', {
+              className: 'dsm-drawer',
+              style: { width: `${drawerWidth}px` },
+              role: 'dialog',
+              'aria-label': t('drawer.title'),
+            },
+            h('div', {
+              className: 'dsm-drawerGrip',
+              title: t('drawer.resize'),
+              onPointerDown: (event) => {
+                if (event.button !== undefined && event.button !== 0) return;
+                const originX = event.clientX;
+                const originWidth = drawerWidth;
+                const move = (moved) => {
+                  const next = Math.max(260, Math.min(originWidth + (originX - moved.clientX), window.innerWidth * 0.78));
+                  setDrawerWidth(Math.round(next));
+                };
+                const stop = () => {
+                  window.removeEventListener('pointermove', move);
+                  window.removeEventListener('pointerup', stop);
+                };
+                window.addEventListener('pointermove', move);
+                window.addEventListener('pointerup', stop);
+                event.preventDefault();
+              },
+            }),
           h('div', { className: 'dsm-drawerHead' },
             h(Icon, { name: 'pin', size: 13 }),
             h('strong', null, t('drawer.title')),
@@ -1823,7 +1854,9 @@ window.__ModuleLoader__.load({
                     onClick: () => setView(note),
                   },
                     h('span', { className: 'dsm-quickDot', style: { background: ACCENTS[note.color] || ACCENTS[DEFAULT_COLOR] } }),
-                    h('span', { className: 'dsm-drawerText' }, noteTitleOf(note) || note.id.slice(0, 8)),
+                    h('span', {
+                      className: `dsm-drawerText${/\[\[.+?\]\]/.test(String(noteTitleOf(note) || '')) ? ' dsm-drawerTextLink' : ''}`,
+                    }, stripWiki(String(noteTitleOf(note) || note.id.slice(0, 8)))),
                     h('span', { className: 'dsm-drawerTime' }, fullTime(note.createdAt, 'zh')),
                     note.remindAt && note.done !== true
                       ? h('span', { className: 'dsm-drawerBadge' }, '⏰')
@@ -2297,6 +2330,11 @@ window.__ModuleLoader__.load({
         /* 忽略 */
       }
       return false;
+    }
+
+    /** 把 [[目标|别名]] / [[目标]] 压成纯文字（列表里不显示方括号）。 */
+    function stripWiki(text) {
+      return String(text || '').replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (match, target, alias) => alias || target).replace(/\[\[|\]\]/g, '');
     }
 
     /** 把渲染后的 DOM 还原成 Markdown（保留标题/列表/代码/表格/引用/强调/链接）。 */
@@ -3713,6 +3751,12 @@ window.__ModuleLoader__.load({
 
         useEffect(() => {
           const onKey = (event) => {
+            if (event.altKey && String(event.key || '').toLowerCase() === 'b') {
+              event.preventDefault();
+              event.stopPropagation();
+              if (draft === null) startEdit();
+              return;
+            }
             if (event.key === 'Escape') {
               event.preventDefault();
               if (draft !== null) setDraft(null);
