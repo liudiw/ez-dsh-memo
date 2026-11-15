@@ -668,7 +668,7 @@ window.__ModuleLoader__.load({
 .dsm-quickDot{width:7px;height:7px;border-radius:50%;flex:none}
 .dsm-quickRecentText{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* [[ 便签候选 */
-.dsm-wikiList{position:absolute;left:8px;right:8px;bottom:calc(100% - 4px);z-index:30;max-height:220px;overflow-y:auto;padding:5px;border-radius:10px;background:var(--dsw-alias-bg-base);border:1px solid var(--dsw-alias-border-l1);box-shadow:0 18px 40px -18px rgba(0,0,0,.4);display:flex;flex-direction:column;gap:2px}
+.dsm-wikiList{position:absolute;left:8px;right:8px;bottom:calc(100% - 4px);z-index:2147482500;max-height:220px;overflow-y:auto;padding:5px;border-radius:10px;background:var(--dsw-alias-bg-base);border:1px solid var(--dsw-alias-border-l1);box-shadow:0 18px 40px -18px rgba(0,0,0,.4);display:flex;flex-direction:column;gap:2px}
 .dsm-wikiItem{display:block;width:100%;text-align:left;font:inherit;font-size:12.5px;padding:6px 8px;border:none;border-radius:7px;background:transparent;color:var(--dsw-alias-label-primary);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dsm-wikiItem[data-active='true'],.dsm-wikiItem:hover{background:color-mix(in srgb,var(--dsw-alias-brand-primary) 14%,transparent)}
 .dsm-wikiEmpty{padding:8px;font-size:12px;color:var(--dsw-alias-label-secondary)}
@@ -3185,6 +3185,20 @@ window.__ModuleLoader__.load({
                 }
               },
             }),
+            wiki
+              ? h(WikiSuggest, {
+                notes: recent,
+                query: wiki.query,
+                index: wikiIndex,
+                onPick: (picked) => {
+                  const title = noteTitleOf(picked) || picked.id.slice(0, 8);
+                  const next = applyWikiLink(draft, wiki.start, title);
+                  setDraft(next.text);
+                  setWiki(null);
+                  setWikiIndex(0);
+                },
+              })
+              : null,
             h('div', { className: 'dsm-quickCats' },
               h('div', { className: 'dsm-paletteWrap' },
                 h('button', {
