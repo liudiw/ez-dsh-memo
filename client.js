@@ -1940,6 +1940,8 @@ window.__ModuleLoader__.load({
               highlight: '',
               onClose: () => setView(null),
               onSave: (text) => {
+                // 先本地更新（列表片段立即变），再落盘并刷新
+                setNotes((current) => current.map((item) => (item.id === view.id ? { ...item, text } : item)));
                 apiCall('update', { id: view.id, text })
                   .then(() => refresh())
                   .catch(() => {});
