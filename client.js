@@ -635,6 +635,7 @@ window.__ModuleLoader__.load({
 .dsm-drawerItem{display:flex;align-items:center;gap:6px;width:100%;text-align:left;font:inherit;font-size:12.5px;padding:6px;border:none;border-radius:7px;background:transparent;color:var(--dsw-alias-label-primary);cursor:pointer}
 .dsm-drawerItem[data-active='true']{background:color-mix(in srgb,var(--dsw-alias-brand-primary) 14%,transparent)}
 .dsm-drawerItem:hover{background:var(--dsw-alias-bg-layer-1)}
+.dsm-drawerTime{flex:none;font-size:10.5px;color:var(--dsw-alias-label-secondary);opacity:.8}
 .dsm-drawerText{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dsm-drawerBadge{flex:none;font-size:10px}
 .dsm-drawerFoot{display:flex;align-items:center;gap:6px;padding-top:6px;border-top:1px dashed var(--dsw-alias-border-l1)}
@@ -1789,6 +1790,7 @@ window.__ModuleLoader__.load({
               },
                 h('span', { className: 'dsm-quickDot', style: { background: ACCENTS[note.color] || ACCENTS[DEFAULT_COLOR] } }),
                 h('span', { className: 'dsm-drawerText' }, noteTitleOf(note) || note.id.slice(0, 8)),
+                h('span', { className: 'dsm-drawerTime' }, fullTime(note.createdAt, 'zh')),
                 note.remindAt && note.done !== true
                   ? h('span', { className: 'dsm-drawerBadge' }, '⏰')
                   : null))),
@@ -1815,6 +1817,37 @@ window.__ModuleLoader__.load({
               },
             }, t('quick.openWall'))))
             : null,
+          ...deep.map((entry, index) => h(NoteViewer, {
+            key: `${entry.id}-${index}`,
+            t,
+            note: notes.find((item) => item.id === entry.id) || entry,
+            x: entry.x || 120 + (index + 1) * 26,
+            y: entry.y || 140 + (index + 1) * 26,
+            language: 'zh',
+            categories,
+            allNotes: notes,
+            highlight: '',
+            onClose: () => setDeep((current) => current.filter((unused, position) => position !== index)),
+            onMove: (x, y) => setDeep((current) => current.map((item, position) => (position === index ? { ...item, x, y } : item))),
+            onOpenWiki: (targetId) => {
+              const target = notes.find((item) => item.id === targetId);
+              if (target) setDeep((current) => current.concat([Object.assign({}, target, {
+                x: 120 + (current.length + 1) * 26,
+                y: 140 + (current.length + 1) * 26,
+              })]));
+            },
+            onSave: (text) => {
+              apiCall('update', { id: entry.id, text }).then(() => refresh()).catch(() => {});
+            },
+            onUpdate: (id, patch) => {
+              apiCall('update', Object.assign({ id }, patch || {})).then(() => refresh()).catch(() => {});
+            },
+            onToggleTask: () => {},
+            onImageClick: () => {},
+            onEdit: () => {},
+            onPrev: null,
+            onNext: null,
+          })),
           view
             ? h(NoteViewer, {
               key: view.id,
@@ -1828,7 +1861,10 @@ window.__ModuleLoader__.load({
               onMove: (x, y) => setDrag({ x, y }),
               onOpenWiki: (targetId) => {
                 const target = notes.find((item) => item.id === targetId);
-                if (target) setView(target);
+                if (target) setDeep((current) => current.concat([Object.assign({}, target, {
+                  x: 120 + (current.length + 1) * 26,
+                  y: 140 + (current.length + 1) * 26,
+                })]));
               },
               highlight: '',
               onClose: () => setView(null),
