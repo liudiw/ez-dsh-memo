@@ -5560,18 +5560,15 @@ window.__ModuleLoader__.load({
 
         /** 打开一张便签的浮窗（叠一层，不关掉原来的窗口）。 */
         const openView = useCallback((id) => {
-          // 临时诊断：中文方括号会意外打开查看窗，先记录调用来源
-          try {
-            console.warn('[dsh-memo] openView', id, new Error('trace').stack);
-          } catch (error) {
-            /* 忽略 */
-          }
+          // 只接受真实存在的便签 id：DSH 自身的键盘处理会传会话/消息 id 进来，
+          // 之前会因此莫名弹出空白查看窗（输入全角【】即可复现）。
+          if (!notes.some((item) => item.id === id)) return;
           setViewers((current) => {
             const others = current.filter((item) => item.id !== id);
             const step = others.length * 26;
             return others.concat([{ id, x: 48 + step, y: 40 + step }]);
           });
-        }, []);
+        }, [notes]);
         const closeView = useCallback(() => {
           setViewers((current) => current.slice(0, -1));
         }, []);
