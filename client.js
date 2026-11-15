@@ -1623,6 +1623,7 @@ window.__ModuleLoader__.load({
         const [open, setOpen] = useState(false);
         const [closing, setClosing] = useState(false);
         const searchRef = useRef(null);
+        const listRef = useRef(null);
         const [query, setQuery] = useState('');
         const [notes, setNotes] = useState([]);
         const [view, setView] = useState(null);
@@ -1632,6 +1633,16 @@ window.__ModuleLoader__.load({
         const [drag, setDrag] = useState(null);
         const [drawerWidth, setDrawerWidth] = useState(320);
         const prevFocus = useRef(null);
+
+        // 高亮移动时让列表跟随滚动（否则光标会跑到面板可视区外）
+        useEffect(() => {
+          const list = listRef.current;
+          if (!list) return;
+          const active = list.querySelector('[data-active="true"]');
+          if (active && typeof active.scrollIntoView === 'function') {
+            try { active.scrollIntoView({ block: 'nearest' }); } catch (error) { /* 忽略 */ }
+          }
+        }, [activeIndex, query]);
 
         /** 关闭时先播 0.4s 收起动画，再真正卸载。 */
         const closeDrawer = useCallback((after) => {
@@ -1657,7 +1668,8 @@ window.__ModuleLoader__.load({
         useEffect(() => {
           const onOpen = () => {
             if (open) {
-              setOpen(false);
+              restoreFocus(prevFocus.current);
+              closeDrawer();
               return;
             }
             if (typeof document !== 'undefined') prevFocus.current = document.activeElement;
@@ -1768,12 +1780,12 @@ window.__ModuleLoader__.load({
           const onKey = (event) => {
             if (event.key !== 'Escape') return;
             // 有悬浮卡先关卡片，再按一次才关抽屉
-            setView((current) => {
-              if (current) return null;
-              setOpen(false);
-              restoreFocus(prevFocus.current);
-              return current;
-            });
+            if (view) {
+              setView(null);
+              return;
+            }
+            restoreFocus(prevFocus.current);
+            closeDrawer();
           };
           window.addEventListener('keydown', onKey);
           return () => window.removeEventListener('keydown', onKey);
@@ -1868,8 +1880,8 @@ window.__ModuleLoader__.load({
               title: t('view.close'),
               'aria-label': t('view.close'),
               onClick: () => {
-                setOpen(false);
                 restoreFocus(prevFocus.current);
+                closeDrawer();
               },
             }, h(Icon, { name: 'close', size: 13 }))),
           h('input', {
@@ -1880,7 +1892,7 @@ window.__ModuleLoader__.load({
             placeholder: t('search'),
             onChange: (event) => setQuery(event.target.value),
           }),
-          h('div', { className: 'dsm-drawerList' },
+          h('div', { className: 'dsm-drawerList', ref: listRef },
             shown.length === 0
               ? h('div', { className: 'dsm-wikiEmpty' }, t('drawer.empty'))
               : (() => {
