@@ -1874,6 +1874,7 @@ window.__ModuleLoader__.load({
             }, h(Icon, { name: 'close', size: 13 }))),
           h('input', {
             ref: searchRef,
+            autoFocus: true,
             className: 'dsm-drawerSearch',
             value: query,
             placeholder: t('search'),
