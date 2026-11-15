@@ -1943,7 +1943,7 @@ window.__ModuleLoader__.load({
                     h('span', {
                       className: `dsm-drawerText${String(note.text || '').includes('[[') ? ' dsm-drawerTextLink' : ''}`,
                     }, stripWiki(String(noteTitleOf(note) || note.id.slice(0, 8)))),
-                    h('span', { className: 'dsm-drawerTime' }, fullTime(note.createdAt, 'zh')),
+                    h('span', { className: 'dsm-drawerTime' }, fullTime(editedAgo(note, 'zh') ? note.updatedAt : note.createdAt, 'zh')),
                     note.remindAt && note.done !== true
                       ? h('span', { className: 'dsm-drawerBadge' }, '⏰')
                       : null));
