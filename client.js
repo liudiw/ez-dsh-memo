@@ -5501,6 +5501,23 @@ window.__ModuleLoader__.load({
           return () => observer.disconnect();
         }, []);
 
+        /** 兜底：窗口缩放时重新测量墙宽（与节点是否已挂载无关）。 */
+        useEffect(() => {
+          const measure = () => {
+            const node = innerRef.current;
+            if (!node) return;
+            const next = Math.round(node.clientWidth || 0);
+            if (next > 60) setWallWidth((previous) => (Math.abs(previous - next) > 1 ? next : previous));
+          };
+          measure();
+          window.addEventListener('resize', measure);
+          const timer = setInterval(measure, 1200);
+          return () => {
+            window.removeEventListener('resize', measure);
+            clearInterval(timer);
+          };
+        }, []);
+
         /** 观测内容宽度：便签是绝对定位的，必须知道可用宽度才能排版。 */
         useEffect(() => {
           const node = innerRef.current;
@@ -5786,7 +5803,9 @@ window.__ModuleLoader__.load({
           if (!wallWidth) return { positions: new Map(), height: 0 };
           // 拖拽改尺寸期间冻结排版：否则每移动 1px 整墙都在重排，手感会糊
           if (resizeActive) return frozenLayoutRef.current;
-          const packed = packNotes(display, wallWidth, 14);
+          const live = innerRef.current && innerRef.current.clientWidth;
+          const width = live && live > 60 ? live : wallWidth;
+          const packed = packNotes(display, width, 14);
           frozenLayoutRef.current = packed;
           return packed;
         }, [display, wallWidth, resizeActive]);
