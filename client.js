@@ -585,7 +585,7 @@ window.__ModuleLoader__.load({
 .dsm-noteFoot{flex:0 0 auto;display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-top:8px;padding-top:6px;border-top:1px dashed color-mix(in srgb,var(--dsm-accent) 30%,transparent)}
 .dsm-pinMark{display:inline-flex;align-items:center;color:var(--dsw-alias-label-secondary)}
 .dsm-time{font-size:11px;color:var(--dsw-alias-label-secondary);white-space:nowrap}
-.dsm-noteActions{display:flex;align-items:center;gap:1px;margin-left:auto;opacity:0;transition:opacity .14s}
+.dsm-noteActions{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;column-gap:1px;row-gap:2px;margin-left:auto;opacity:0;min-width:0;transition:opacity .14s}
 .dsm-note:hover .dsm-noteActions,.dsm-note:focus-within .dsm-noteActions{opacity:1}
 /* 右下角拖拽把手：默认只留一点点提示，悬停才完整显形。 */
 .dsm-grip{cursor:grab}
@@ -1170,7 +1170,7 @@ window.__ModuleLoader__.load({
     /* #region packer */
     /** 每行想要的张数（从多到少试，保证单张不会太窄）。 */
     const PER_ROW_STEPS = [5, 4, 3, 2, 1]
-    const MIN_PER_ROW_WIDTH = 180
+    const MIN_PER_ROW_WIDTH = 240
 
     /** 便签宽度：手动调过就用它；否则默认「一行五张」，太窄就逐级减少。 */
     /**
