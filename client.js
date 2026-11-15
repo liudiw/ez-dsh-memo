@@ -146,9 +146,9 @@ window.__ModuleLoader__.load({
       'set.errApi': '服务地址要以 http:// 或 https:// 开头',
       'set.errVault': 'Vault 名称不能为空',
       'set.tip': '便签始终保存在本机 ~/.dsh/dsh-memo/notes.json，同步只是把它镜像成 Markdown。',
-      'capture.button': '保存便签',
+      'capture.button': '存成便签',
       'capture.collect': '收集本轮',
-      'capture.button': 'Save to notes',
+      'capture.button': '存成便签',
       'capture.collect': 'Collect turn',
       'quick.reset': '重置（清空全部，Alt+R）',
       'quick.keepDraft': '内容还没存成便签，要留着当草稿吗？',
@@ -381,7 +381,7 @@ window.__ModuleLoader__.load({
 .dsm-collectBtnUnused{font:inherit;font-size:11.5px;padding:2px 8px;border-radius:999px;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-secondary);cursor:pointer;opacity:.8}
 .dsm-collectBtn:hover{opacity:1;color:var(--dsw-alias-brand-primary)}
 .dsm-tip{position:relative}
-.dsm-tip:hover::after{content:attr(data-tip);position:absolute;left:50%;bottom:calc(100% + 6px);transform:translateX(-50%);white-space:nowrap;background:#1b1b1f;color:#fff;font-size:12.5px;line-height:1;padding:6px 9px;border-radius:7px;pointer-events:none;z-index:2147483000;box-shadow:0 8px 20px -8px rgba(0,0,0,.5)}
+.dsm-tip:hover::after{content:attr(data-tip);position:absolute;left:50%;top:calc(100% + 6px);transform:translateX(-50%);white-space:nowrap;background:#1b1b1f;color:#fff;font-size:13.5px;line-height:1;padding:7px 10px;border-radius:7px;pointer-events:none;z-index:2147483000;box-shadow:0 8px 20px -8px rgba(0,0,0,.5)}
 .dsm-confirmPop{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:40;width:min(320px,80vw);padding:14px 16px;border-radius:14px;border:1px solid color-mix(in srgb,var(--dsw-alias-brand-primary) 45%,var(--dsw-alias-border-l1));background:var(--dsw-alias-bg-base);box-shadow:0 26px 60px -26px rgba(0,0,0,.55),0 0 0 1px color-mix(in srgb,var(--dsw-alias-brand-primary) 12%,transparent);pointer-events:auto}
 .dsm-confirmText{font-size:13px;line-height:1.6;color:var(--dsw-alias-label-primary);margin-bottom:12px}
 .dsm-confirmActions{display:flex;gap:8px;justify-content:flex-end}
