@@ -5505,14 +5505,24 @@ window.__ModuleLoader__.load({
         useEffect(() => {
           const node = innerRef.current;
           if (!node || typeof ResizeObserver !== 'function') return undefined;
+          const apply = (width) => {
+            const next = Math.round(width || 0);
+            if (next > 60) setWallWidth((previous) => (Math.abs(previous - next) > 1 ? next : previous));
+          };
           const observer = new ResizeObserver((entries) => {
-            for (const entry of entries) {
-              const width = Math.round(entry.contentRect.width);
-              setWallWidth((previous) => (Math.abs(previous - width) > 1 ? width : previous));
-            }
+            for (const entry of entries) apply(entry.contentRect.width);
           });
           observer.observe(node);
-          return () => observer.disconnect();
+          apply(node.clientWidth);
+          // 兜底：窗口缩放/侧栏变化时重新测量（ResizeObserver 在节点重挂时可能失效）
+          const onResize = () => {
+            if (innerRef.current) apply(innerRef.current.clientWidth);
+          };
+          window.addEventListener('resize', onResize);
+          return () => {
+            observer.disconnect();
+            window.removeEventListener('resize', onResize);
+          };
         }, []);
 
         /** 在光标处插入一段文本（用函数式更新，避免上传期间用户的输入被覆盖）。 */
