@@ -1986,35 +1986,6 @@ window.__ModuleLoader__.load({
               },
             }, t('quick.openWall'))))
             : null,
-          ...deep.map((entry, index) => h(NoteViewer, {
-            key: `${entry.id}-${index}`,
-            t,
-            note: notes.find((item) => item.id === entry.id) || entry,
-            x: entry.x || Math.max(24, Math.min(40 + (index + 1) * 56, (typeof window !== 'undefined' ? window.innerWidth : 1400) - 620)),
-            y: entry.y || 48 + (index + 1) * 48,
-            z: 2147482000 + index + 1,
-            language: 'zh',
-            categories,
-            allNotes: notes,
-            highlight: '',
-            onClose: () => setDeep((current) => current.filter((unused, position) => position !== index)),
-            onMove: (x, y) => setDeep((current) => current.map((item, position) => (position === index ? { ...item, x, y } : item))),
-            onOpenWiki: (targetId) => {
-              const target = notes.find((item) => item.id === targetId);
-              if (target) setDeep((current) => current.concat([target]));
-            },
-            onSave: (text) => {
-              apiCall('update', { id: entry.id, text }).then(() => refresh()).catch(() => {});
-            },
-            onUpdate: (id, patch) => {
-              apiCall('update', Object.assign({ id }, patch || {})).then(() => refresh()).catch(() => {});
-            },
-            onToggleTask: () => {},
-            onImageClick: () => {},
-            onEdit: () => {},
-            onPrev: null,
-            onNext: null,
-          })),
           view
             ? h(NoteViewer, {
               key: view.id,
@@ -2030,10 +2001,10 @@ window.__ModuleLoader__.load({
               onMove: (x, y) => setDrag({ x, y }),
               onOpenWiki: (targetId) => {
                 const target = notes.find((item) => item.id === targetId);
-                if (target) setDeep((current) => current.concat([Object.assign({}, target, {
-                  x: 120 + (current.length + 1) * 26,
-                  y: 140 + (current.length + 1) * 26,
-                })]));
+                if (target && view && target.id !== view.id) {
+                  setDeep((current) => current.concat([view]));   // 历史栈
+                  setView(target);
+                }
               },
               highlight: '',
               onClose: () => setView(null),
