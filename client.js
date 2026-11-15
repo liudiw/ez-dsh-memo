@@ -2678,6 +2678,7 @@ window.__ModuleLoader__.load({
         const [draft, setDraft] = useState(() => readDraft().text);
         const [color, setColor] = useState(() => readDraft().color);
         const [recent, setRecent] = useState([]);
+        const [allNotes, setAllNotes] = useState([]);
         const [busy, setBusy] = useState(false);
         const [flash, setFlash] = useState('');
         const [remindAt, setRemindAt] = useState(() => readDraft().remindAt);
@@ -2699,9 +2700,10 @@ window.__ModuleLoader__.load({
         const loadRecent = useCallback(async () => {
           try {
             const result = await apiCall('list');
-            setRecent((result && Array.isArray(result.notes) ? result.notes : [])
-              .filter((note) => note.archived !== true)
-              .slice(0, 5));
+            const list = (result && Array.isArray(result.notes) ? result.notes : [])
+              .filter((note) => note.archived !== true);
+            setRecent(list.slice(0, 5));
+            setAllNotes(list);
             setCategories(result && Array.isArray(result.categories) ? result.categories : []);
           } catch (error) {
             setRecent([]);
@@ -3186,8 +3188,8 @@ window.__ModuleLoader__.load({
               },
             }),
             wiki
-              ? h(WikiSuggest, {
-                notes: recent,
+              ? h('div', { className: 'dsm-wikiInline' }, h(WikiSuggest, {
+                notes: allNotes,
                 query: wiki.query,
                 index: wikiIndex,
                 onPick: (picked) => {
@@ -3197,7 +3199,7 @@ window.__ModuleLoader__.load({
                   setWiki(null);
                   setWikiIndex(0);
                 },
-              })
+              }))
               : null,
             h('div', { className: 'dsm-quickCats' },
               h('div', { className: 'dsm-paletteWrap' },
