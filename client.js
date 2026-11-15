@@ -1855,7 +1855,7 @@ window.__ModuleLoader__.load({
                   },
                     h('span', { className: 'dsm-quickDot', style: { background: ACCENTS[note.color] || ACCENTS[DEFAULT_COLOR] } }),
                     h('span', {
-                      className: `dsm-drawerText${/\[\[.+?\]\]/.test(String(noteTitleOf(note) || '')) ? ' dsm-drawerTextLink' : ''}`,
+                      className: `dsm-drawerText${String(note.text || '').includes('[[') ? ' dsm-drawerTextLink' : ''}`,
                     }, stripWiki(String(noteTitleOf(note) || note.id.slice(0, 8)))),
                     h('span', { className: 'dsm-drawerTime' }, fullTime(note.createdAt, 'zh')),
                     note.remindAt && note.done !== true
@@ -1942,7 +1942,6 @@ window.__ModuleLoader__.load({
                 apiCall('update', { id: view.id, text })
                   .then(() => refresh())
                   .catch(() => {});
-                setView(null);
               },
               onUpdate: (id, patch) => {
                 apiCall('update', Object.assign({ id }, patch || {}))
@@ -3751,6 +3750,16 @@ window.__ModuleLoader__.load({
 
         useEffect(() => {
           const onKey = (event) => {
+            if (event.altKey && String(event.key || '').toLowerCase() === 's' && draft !== null) {
+              event.preventDefault();
+              event.stopPropagation();
+              const savedValue = String(draft || '').trim();
+              if (savedValue) {
+                props.onSave(savedValue);
+                setDraft(null);
+              }
+              return;
+            }
             if (event.altKey && String(event.key || '').toLowerCase() === 'b') {
               event.preventDefault();
               event.stopPropagation();
