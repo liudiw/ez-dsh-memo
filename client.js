@@ -1635,7 +1635,10 @@ window.__ModuleLoader__.load({
             if (['arrowdown', 'arrowup', 'enter'].indexOf(drawKey) >= 0) {
               event.preventDefault();
               const needleNow = String(query || '').trim().toLowerCase();
+              // 必须与列表渲染用同一份顺序（按建立时间倒序），否则回车会打开错位的便签
               const listNow = notes
+                .slice()
+                .sort((a, b) => (Date.parse(b.createdAt || '') || 0) - (Date.parse(a.createdAt || '') || 0))
                 .filter((item) => (!needleNow ? true : String(item.text || '').toLowerCase().indexOf(needleNow) >= 0))
                 .slice(0, 60);
               if (drawKey === 'arrowdown') {
@@ -1698,6 +1701,8 @@ window.__ModuleLoader__.load({
             if (tag === 'INPUT' || tag === 'TEXTAREA') return;   // 搜索框里保留原生编辑
             const needleNow = String(query || '').trim().toLowerCase();
             const listNow = notes
+              .slice()
+              .sort((a, b) => (Date.parse(b.createdAt || '') || 0) - (Date.parse(a.createdAt || '') || 0))
               .filter((item) => (!needleNow ? true : String(item.text || '').toLowerCase().indexOf(needleNow) >= 0))
               .slice(0, 60);
             if (!listNow.length) return;
