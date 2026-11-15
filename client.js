@@ -5950,7 +5950,11 @@ window.__ModuleLoader__.load({
               : null);
         }
 
-        return h('div', { className: 'dsm-root', ref: rootRef },
+        return h('div', {
+          className: 'dsm-root',
+          ref: rootRef,
+          'data-debug': `w=${Math.round(wallWidth)} live=${Math.round((innerRef.current && innerRef.current.clientWidth) || 0)} n=${display.length} cols=${layout.cols || 0} cell=${Math.round(layout.cell || 0)}`,
+        },
           h('div', { className: 'dsm-scroll' },
             h('div', { className: 'dsm-inner', ref: innerRef },
               h('header', { className: 'dsm-head' },
