@@ -323,6 +323,10 @@ export function createSyncEngine(options) {
 
   const emptyStats = () => ({ pushed: 0, pulled: 0, imported: 0, deleted: 0, conflicts: 0, rebound: 0, tombstones: 0 })
 
+  // 分类映射：runOnce 每轮刷新，pushNote 等函数共用
+  let nameById = new Map()
+  const namesFor = (note) => (note.categoryIds || []).map((id) => nameById.get(id)).filter(Boolean)
+
   async function pushNote(note, pathOverride) {
     // 已有映射的便签沿用原文件名：改正文不该在 vault 里多出一个 md。
     const path = pathOverride || noteFilePath(folder, note)
@@ -343,8 +347,7 @@ export function createSyncEngine(options) {
   async function runOnce() {
     const stats = emptyStats()
     const { notes, categories } = await store.list()
-    const nameById = new Map((categories || []).map((item) => [item.id, item.name]))
-    const namesFor = (note) => (note.categoryIds || []).map((id) => nameById.get(id)).filter(Boolean)
+    nameById = new Map((categories || []).map((item) => [item.id, item.name]))
     // 冲突副本单轮上限：逻辑上不该出现大量冲突，这里是防跑飞的保险丝。
     const MAX_CONFLICT_COPIES = 5
     let conflictCopies = 0
