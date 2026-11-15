@@ -1922,7 +1922,8 @@ window.__ModuleLoader__.load({
             ? h(NoteViewer, {
               key: view.id,
               t,
-              note: view,
+              // 用最新的 notes 里的对象：否则保存后仍显示打开那一刻的旧快照
+              note: notes.find((item) => item.id === view.id) || view,
               x: drag ? drag.x : 48,
               y: drag ? drag.y : 90,
               language: 'zh',
